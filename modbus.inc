@@ -1,0 +1,46 @@
+;; ---------------------------------------------------------------------------
+;;
+;;  MODBUS
+;;
+;;  Copyright © 2006  Peter Heinrich
+;;  All Rights Reserved
+;;
+;;  $URL$
+;;  $Revision$
+;;
+;; ---------------------------------------------------------------------------
+;;  $Author$
+;;  $Date$
+;; ---------------------------------------------------------------------------
+
+
+
+   processor 18f242
+   radix dec
+   list b=3
+
+   #include <p18f242.inc>
+
+
+
+; Everyone should agree on the CPU clock speed.
+kFrequency  equ   20000000    ; 20 MHz
+
+; Base pointer to beginning of message buffer.
+kMsgBuffer  equ   0x0080
+
+; Enumerate the baud rates we support.  Trick: each value is a valid Baud Rate
+; Generator (BRG) for the clock speed, above.
+kBaud_9600   equ  (kFrequency / (  9600 << 4)) - 1    ; 129 (0x81) @ 20 MHz
+kBaud_19200  equ  (kFrequency / ( 19200 << 4)) - 1    ; 64 (0x40) @ 20 MHz
+kBaud_57600  equ  (kFrequency / ( 57600 << 4)) - 1    ; 20 (0x14) @ 20 MHz
+kBaud_115200 equ  (kFrequency / (115200 << 4)) - 1    ; 9 (0x9) @ 20 MHz
+
+; Enumerate the error checking methods we support.
+kParity_Even equ  0
+kParity_Odd  equ  1
+kParity_None equ  2
+
+; Enumerate our transmission modes.
+kMode_RTU   equ   0           ; 8-bit character + start/stop/parity = 11 bits total
+kMode_ASCII equ   1           ; 7-bit character + start/stop/parity = 10 bits total
