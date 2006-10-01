@@ -33,7 +33,11 @@
    extern   RTU.init
    extern   UART.init
 
+   global   MODBUS.State
+   global   MODBUS.FrameError
+
    global   MODBUS.resetMsgBuffer
+   global   MODBUS.writeMsgByte
 
 
 
@@ -86,6 +90,22 @@ MODBUS.MsgBuffer  res   2     ; points to next location to be read or written
 ;;  This routine calls other methods to handle specific peripherals.
 ;;
 MODBUS.init:
+;   movlw    0x80
+;   movwf    T1CON
+;   movlw    0xb1
+;   movwf    TMR1H
+;   movlw    0xac
+;   movwf    TMR1L
+;   bsf      PIE1, TMR1IE
+;   bsf      T1CON, TMR1ON
+;   clrf     PIR1
+;   clrf     PIR2
+;   bsf      INTCON, PEIE
+;   bsf      INTCON, GIE
+
+loop:
+;   bra      loop
+
    ; Some components of the system must be initialized.
    call     CONF.init         ; read configuration jumpers/switches
    call     UART.init         ; set UART mode, baud rate, etc.
@@ -112,7 +132,7 @@ MODBUS.resetMsgBuffer:
    movlw    LOW kMsgBuffer
    movwf    MODBUS.MsgBuffer
    movlw    HIGH kMsgBuffer
-   movwf    MODBUS.MsgBuffer
+   movwf    MODBUS.MsgBuffer + 1
 
    ; Reset the frame error indicator, since we're starting from scratch.
    clrf     MODBUS.FrameError
@@ -127,12 +147,14 @@ MODBUS.writeMsgByte:
    ; Read the address of the last byte written.
    movf     MODBUS.MsgBuffer, W
    movwf    FSR0L
-   movf     MODBUS.MsgBuffer, W
+   movf     MODBUS.MsgBuffer + 1, W
    movwf    FSR0H
 
    ; Write the byte indirectly.
    movf     RCREG, W          ; read the serial port latch
    movwf    POSTINC0          ; store and post increment
+
+   movwf    TXREG
 
    ; Save the current tail pointer so we can resume there next time.
    movf     FSR0L, W
