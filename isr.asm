@@ -41,14 +41,15 @@ ISR.high:
    btfsc    PIR1, RCIF        ; was a character received?
      call   UART.rxCharacter  ; yes, process it
 
-   btfsc    PIR1, TXIF        ; was a character transmitted?
-     call   UART.txCharacter  ; yes, process it
+   btfsc    PIR1, RCIF
+     movf     RCREG, W
 
    ; Determine if our timer overflowed.
    btfss    PIR1, TMR1IF      ; has timer1 expired?
      retfie                   ; no, we're done
 
    ; A timer1 event did occur.
+   bcf      PIR1, TMR1IF
    tstfsz   CONF.Mode         ; are we in RTU mode?
      bra    asciiTimeout      ; no, the ASCII state machine takes over
 
@@ -57,8 +58,6 @@ ISR.high:
 
 asciiTimeout:
    call     ASCII.timeout
-
-done:
    retfie
 
 
