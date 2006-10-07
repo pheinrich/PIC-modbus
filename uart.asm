@@ -25,6 +25,7 @@
    extern   RTU.rxCharacter
 
    global   UART.CharacterErrors
+   global   UART.LastCharacter
    global   UART.ParityErrors
 
    global   UART.init
@@ -37,8 +38,9 @@
             udata_acs
 ;; ---------------------------------------------------------------------------
 
-UART.CharacterErrors   res   1
-UART.ParityErrors      res   1
+UART.CharacterErrors    res   1
+UART.LastCharacter      res   1
+UART.ParityErrors       res   1
 
 
 
@@ -122,6 +124,9 @@ UART.rxCharacter:
    incf     UART.CharacterErrors
 
 rxChar:
+   ; Read the character to clear the interrupt flag.
+   movff    RCREG, UART.LastCharacter
+
    ; Update the appropriate state machine.
    tstfsz   CONF.Mode         ; are we in RTU transmission mode?
      goto   ASCII.rxCharacter ; no, process an ASCII character
