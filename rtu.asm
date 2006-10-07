@@ -71,6 +71,7 @@ TIMER1      macro timeout
    ; Start the timer.
    bsf      PIE1, TMR1IE      ; enable associated overflow interrupt
    bsf      T1CON, TMR1ON     ; enable timer
+   bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
    endm
 
 
@@ -307,12 +308,14 @@ timeoutCtrlWait:
    ; elapsed since the last character was received.  If no errors were detected
    ; with the frame, process it (otherwise it will be discarded).
    ; process frame (or not)
+   nop
 
 timeoutIdle:
    ; Become idle, since we know a full frame timeout period has elapsed.
    movlw    kState_Idle       ; enter idle state
    movwf    MODBUS.State
    bcf      PIE1, TMR1IE      ; disable timer1 interrupts
+
    return
 
 
