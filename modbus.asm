@@ -26,6 +26,8 @@
 
    #include "modbus.inc"
 
+   extern   UART.LastCharacter
+
    extern   ISR.high
    extern   ISR.low
    extern   main
@@ -151,10 +153,8 @@ MODBUS.writeMsgByte:
    movwf    FSR0H
 
    ; Write the byte indirectly.
-   movf     RCREG, W          ; read the serial port latch
-   movwf    POSTINC0          ; store and post increment
-
-   movwf    TXREG
+   movff    UART.LastCharacter, POSTINC0
+   movff    UART.LastCharacter, TXREG
 
    ; Save the current tail pointer so we can resume there next time.
    movf     FSR0L, W
