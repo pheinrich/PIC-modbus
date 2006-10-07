@@ -46,7 +46,7 @@ ISR.high:
      retfie                   ; no, we're done
 
    ; A timer1 event did occur.
-   bcf      PIR1, TMR1IF
+   bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
    tstfsz   CONF.Mode         ; are we in RTU mode?
      bra    asciiTimeout      ; no, the ASCII state machine takes over
 

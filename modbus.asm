@@ -44,7 +44,7 @@
 
 
 ;; ---------------------------------------------------------------------------
-.reset      code     0x0000
+.isvReset   code     0x0000
 ;; ---------------------------------------------------------------------------
 
    ; Disable all interrupts and jump to relocatable initialization code.
@@ -54,7 +54,7 @@
 
 
 ;; ---------------------------------------------------------------------------
-.irqHigh    code     0x0008
+.isvHigh    code     0x0008
 ;; ---------------------------------------------------------------------------
 
    ; Jump to high-priority interrupt service routine in relocatable code block.
@@ -63,7 +63,7 @@
 
 
 ;; ---------------------------------------------------------------------------
-.irqLow     code     0x0018
+.isvLow     code     0x0018
 ;; ---------------------------------------------------------------------------
 
    ; Jump to low-priority interrupt service routine in relocatable code block.
@@ -92,22 +92,6 @@ MODBUS.MsgBuffer  res   2     ; points to next location to be read or written
 ;;  This routine calls other methods to handle specific peripherals.
 ;;
 MODBUS.init:
-;   movlw    0x80
-;   movwf    T1CON
-;   movlw    0xb1
-;   movwf    TMR1H
-;   movlw    0xac
-;   movwf    TMR1L
-;   bsf      PIE1, TMR1IE
-;   bsf      T1CON, TMR1ON
-;   clrf     PIR1
-;   clrf     PIR2
-;   bsf      INTCON, PEIE
-;   bsf      INTCON, GIE
-
-loop:
-;   bra      loop
-
    ; Some components of the system must be initialized.
    call     CONF.init         ; read configuration jumpers/switches
    call     UART.init         ; set UART mode, baud rate, etc.

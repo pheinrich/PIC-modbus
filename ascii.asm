@@ -76,6 +76,7 @@ RESET_TIMER1  macro
    ; Start the timer.
    bsf      PIE1, TMR1IE      ; enable associated overflow interrupt
    bsf      T1CON, TMR1ON     ; enable timer
+   bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
    endm
 
 
