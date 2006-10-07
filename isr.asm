@@ -41,9 +41,6 @@ ISR.high:
    btfsc    PIR1, RCIF        ; was a character received?
      call   UART.rxCharacter  ; yes, process it
 
-   btfsc    PIR1, RCIF
-     movf     RCREG, W
-
    ; Determine if our timer overflowed.
    btfss    PIR1, TMR1IF      ; has timer1 expired?
      retfie                   ; no, we're done
