@@ -106,6 +106,7 @@ CONF.init:
    movwf    CONF.BaudRate     ; SW2-SW3
 
    rCall    CONF.getMode
+   movlw    kMode_ASCII
    movwf    CONF.Mode         ; SW1
 
    rCall    CONF.getParityCheck

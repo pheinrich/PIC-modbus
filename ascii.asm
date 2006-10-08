@@ -20,6 +20,7 @@
    extern   CONF.ParityCheck
    extern   MODBUS.FrameError
    extern   MODBUS.State
+   extern   UART.LastCharacter
    extern   UART.ParityErrors
 
    extern   MODBUS.resetMsgBuffer
@@ -106,7 +107,7 @@ ASCII.checkParity:
 ;;  void ASCII.init()
 ;;
 ASCII.init:
-   movlw    0xd               ; delimiter defaults to linefeed
+   movlw    '\r'              ; delimiter defaults to linefeed
    movwf    ASCII.Delimiter
    clrf     MODBUS.State      ; start in idle state
    return
@@ -124,8 +125,8 @@ ASCII.rxCharacter:
      bra    rxReception       ; no, check if reception state
 
    ; Idle State:  reception of a colon (":") here indicates the start of a frame.
-   movlw    ":"
-   cpfseq   RCREG             ; was a colon receieved?
+   movlw    ':'
+   cpfseq   UART.LastCharacter; was a colon receieved?
      return                   ; no, we can exit
 
 rxReceive:
@@ -148,12 +149,12 @@ rxReception:
    ; Reception State:  received characters are buffered as part of the frame in
    ; progress unless a colon (":"), in which case the frame is reset, or carriage
    ; return, in which case we switch to waiting mode.
-   movlw    ":"
-   subwf    RCREG, W          ; was a colon received?
+   movlw    ':'
+   subwf    UART.LastCharacter, W ; was a colon received?
    bz       rxReset           ; yes, reset the frame pointer and exit
 
-   movlw    0x0a
-   cpfseq   RCREG             ; was a carriage return received?
+   movlw    '\n'
+   cpfseq   UART.LastCharacter; was a carriage return received?
      bra    rxBuffer          ; no, buffer the character
 
    ; A carriage return was received.
@@ -174,12 +175,12 @@ rxWaiting:
    ; Waiting State:  after a carriage return is received, this state waits for the
    ; end of frame marker specified by ASCII.Delimiter (usually linefeed, 0xd).  If
    ; a colon is received first, the frame is reset instead.
-   movlw    ":"
-   subwf    RCREG, W          ; was a colon received?
+   movlw    ':'
+   subwf    UART.LastCharacter, W ; was a colon received?
    bz       rxReceive         ; yes, clear buffer and move to reception state
 
-   movf     ASCII.Delimiter
-   cpfseq   RCREG             ; was a linefeed (or alternative delimiter) received?
+   movf     ASCII.Delimiter, W
+   cpfseq   UART.LastCharacter; was a linefeed (or alternative delimiter) received?
      return                   ; no, keep waiting
 
    ; A frame delimiter was received.  If no errors were detected with the frame,

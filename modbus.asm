@@ -26,8 +26,10 @@
 
    #include "modbus.inc"
 
+   extern   CONF.Mode
    extern   UART.LastCharacter
 
+   extern   ASCII.init
    extern   ISR.high
    extern   ISR.low
    extern   main
@@ -95,8 +97,18 @@ MODBUS.init:
    ; Some components of the system must be initialized.
    call     CONF.init         ; read configuration jumpers/switches
    call     UART.init         ; set UART mode, baud rate, etc.
-   call     RTU.init          ; calculate intercharacter/frame timeouts
 
+   ; Initialize the correct mode according to the configuration.
+   tstfsz   CONF.Mode         ; are we in RTU mode?
+     bra    asciiInit         ; no, initialize ASCII mode
+
+   call     RTU.init          ; calculate intercharacter/frame timeouts
+   bra      clearInts
+
+asciiInit:
+   call     ASCII.init        ; set default delimiter
+
+clearInts:
    ; Clear all pending peripheral interrupts.
    clrf     PIR1
    clrf     PIR2
