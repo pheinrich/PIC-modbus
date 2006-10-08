@@ -19,8 +19,8 @@
 
    extern   CONF.BaudRate
    extern   CONF.ParityCheck
+   extern   MODBUS.FrameError
    extern   MODBUS.State
-   extern   UART.ParityErrors
 
    extern   MODBUS.resetMsgBuffer
    extern   MODBUS.writeMsgByte
@@ -249,7 +249,7 @@ rxCtrlWait:
    ; Control-Wait State:  characters received now indicate a partial frame was
    ; received.  Now we must wait for a full frame timeout period to elapse before
    ; it's safe to go idle again.
-   ; flag = frame NOK         ; note that the frame should be discarded
+   setf     MODBUS.FrameError ; note that the frame should be discarded
 
 rxFrame:
    ; Reset the frame timeout timer.

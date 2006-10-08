@@ -150,7 +150,9 @@ MODBUS.writeMsgByte:
 
    ; Write the byte indirectly.
    movff    UART.LastCharacter, POSTINC0
+;<debug>
    movff    UART.LastCharacter, TXREG
+;</debug>
 
    ; Save the current tail pointer so we can resume there next time.
    movf     FSR0L, W

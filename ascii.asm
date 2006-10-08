@@ -21,7 +21,6 @@
    extern   MODBUS.FrameError
    extern   MODBUS.State
    extern   UART.LastCharacter
-   extern   UART.ParityErrors
 
    extern   MODBUS.resetMsgBuffer
    extern   MODBUS.writeMsgByte

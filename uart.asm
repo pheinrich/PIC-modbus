@@ -20,13 +20,12 @@
    extern   CONF.BaudRate
    extern   CONF.Mode
    extern   CONF.ParityCheck
+   extern   MODBUS.FrameError
 
    extern   ASCII.rxCharacter
    extern   RTU.rxCharacter
 
-   global   UART.CharacterErrors
    global   UART.LastCharacter
-   global   UART.ParityErrors
 
    global   UART.init
    global   UART.rxCharacter
@@ -38,9 +37,7 @@
             udata_acs
 ;; ---------------------------------------------------------------------------
 
-UART.CharacterErrors    res   1
 UART.LastCharacter      res   1
-UART.ParityErrors       res   1
 
 
 
@@ -121,7 +118,7 @@ UART.rxCharacter:
    ; There was an error, which we must clear and record.
    bcf      RCSTA, CREN
    bsf      RCSTA, CREN
-   incf     UART.CharacterErrors
+   setf     MODBUS.FrameError
 
 rxChar:
    ; Read the character to clear the interrupt flag.
