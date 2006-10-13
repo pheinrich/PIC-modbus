@@ -21,9 +21,10 @@
    extern   CONF.ParityCheck
    extern   MODBUS.FrameError
    extern   MODBUS.State
+   extern   UART.LastCharacter
 
-   extern   MODBUS.resetMsgBuffer
-   extern   MODBUS.writeMsgByte
+   extern   MODBUS.resetFrame
+   extern   MODBUS.storeFrameByte
 
    global   RTU.init
    global   RTU.rxCharacter
@@ -84,6 +85,9 @@ RTU.CharTimeout   res   2     ; the inter-character timeout, in µs
 RTU.FrameTimeout  res   2     ; the inter-frame timeout, in µs
 RTU.TimeoutDelta  res   2     ; difference between timeout values
 
+RTU.CRC           res   2     ; Cyclical Redundancy Check
+RTU.Scratch       res   1     ; work variable
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -124,6 +128,37 @@ DelayTable:
 ;;  void RTU.checkParity()
 ;;
 RTU.checkParity:
+   return
+
+
+
+;; ----------------------------------------------
+;;  void RTU.crc( byte b )
+;;
+;;  Updates a running CRC-16 checksum with the byte specified in W.  The value
+;;  of RTU.CRC will be updated (in little-endian format).  The generating
+;;  polynomial used by MODBUS is x^16 + x^15 + x^13 + x^0 (0xa001).  This
+;;  method expects the checksum to be initialized to 0xffff before first use.
+;;
+RTU.crc:
+   xorwf    RTU.CRC
+   movlw    0x08
+   movwf    RTU.Scratch
+
+xorBit:
+   bcf      STATUS, C
+   rrcf     RTU.CRC + 1
+   rrcf     RTU.CRC
+   bnc      nextBit
+
+   movlw    0xa0
+   xorwf    RTU.CRC + 1
+   movlw    0x01
+   xorwf    RTU.CRC
+
+nextBit:
+   decfsz   RTU.Scratch
+     bra    xorBit
    return
 
 
@@ -224,7 +259,7 @@ rxIdle:
    ; so begin reception.
    movlw    kState_Reception  ; switch to reception state
    movwf    MODBUS.State
-   call     MODBUS.resetMsgBuffer
+   call     MODBUS.resetFrame
    bra      rxStash           ; start buffering frame characters
 
 rxReception:
@@ -236,7 +271,9 @@ rxReception:
 rxStash:
    ; Reception State:  characters received now are buffered until a character gap
    ; is detected.
-   call     MODBUS.writeMsgByte
+   rcall    RTU.checkParity   ; parity errors don't stop reception, just invalidate frame
+   movf     UART.LastCharacter, W
+   call     MODBUS.storeFrameByte
    TIMER1   RTU.CharTimeout   ; reset the character timeout timer
    return
 

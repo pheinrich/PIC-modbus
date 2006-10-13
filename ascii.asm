@@ -22,8 +22,8 @@
    extern   MODBUS.State
    extern   UART.LastCharacter
 
-   extern   MODBUS.resetMsgBuffer
-   extern   MODBUS.writeMsgByte
+   extern   MODBUS.resetFrame
+   extern   MODBUS.storeFrameByte
 
    global   ASCII.Delimiter
 
@@ -85,8 +85,12 @@ RESET_TIMER1  macro
 .modeovr    access_ovr
 ;; ---------------------------------------------------------------------------
 
-ASCII.Delimiter   res   1     ; frame delimiter character
-ASCII.Timeouts    res   1     ; supports extra long (>1s) delays
+ASCII.Delimiter      res   1     ; frame delimiter character
+ASCII.IsOddNybble    res   1     ; 0 = false, 255 = true
+ASCII.LRC            res   1     ; Longitudinal Redundancy Check
+ASCII.Nybbles        res   1     ; buffers successive hex character codes
+ASCII.Scratch        res   1     ; work variable
+ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 
 
 
@@ -106,9 +110,24 @@ ASCII.checkParity:
 ;;  void ASCII.init()
 ;;
 ASCII.init:
-   movlw    '\r'              ; delimiter defaults to linefeed
+   movlw    '\n'              ; delimiter defaults to linefeed
    movwf    ASCII.Delimiter
    clrf     MODBUS.State      ; start in idle state
+   return
+
+
+
+;; ----------------------------------------------
+;;  void ASCII.resetFrame()
+;;
+ASCII.resetFrame:
+   ; Do the basic frame reset, which is mode-independent.
+   call     MODBUS.resetFrame
+
+   ; Initialize some variables used only in ASCII mode.
+   clrf     ASCII.Nybbles
+   setf     ASCII.IsOddNybble
+   clrf     ASCII.LRC
    return
 
 
@@ -133,7 +152,7 @@ rxReceive:
    movwf    MODBUS.State
 
 rxReset:
-   call     MODBUS.resetMsgBuffer
+   rcall    ASCII.resetFrame
 
 rxTimer:
    RESET_TIMER1               ; reset the inter-character delay timeout
@@ -152,17 +171,19 @@ rxReception:
    subwf    UART.LastCharacter, W ; was a colon received?
    bz       rxReset           ; yes, reset the frame pointer and exit
 
-   movlw    '\n'
+   movlw    '\r'
    cpfseq   UART.LastCharacter; was a carriage return received?
-     bra    rxBuffer          ; no, buffer the character
+     bra    rxStash           ; no, buffer the character
 
    ; A carriage return was received.
    movlw    kState_Waiting    ; enter waiting state
    movwf    MODBUS.State
    bra      rxTimer
 
-rxBuffer:
-   call     MODBUS.writeMsgByte
+rxStash:
+   ; Stash the character in the message buffer.
+   rcall    ASCII.checkParity ; parity errors don't stop reception, just invalidate frame
+   rcall    ASCII.storeFrameByte
    bra      rxTimer
 
 rxWaiting:
@@ -193,6 +214,47 @@ rxWaiting:
    return
 
    
+
+;; ----------------------------------------------
+;;  void ASCII.storeFrameByte()
+;;
+ASCII.storeFrameByte:
+   ; Update the Longitudinal Redundancy Checksum.
+   movf     UART.LastCharacter, W
+   addwf    ASCII.LRC
+
+   ; Convert the ASCII character code into the integer value corresponding to the
+   ; hexadecimal digit it represents.  '0'-'9' become 0-9; 'A'-'F' and 'a'-'f'
+   ; become 10-15.
+   addlw    0x9f
+   bnn      adjust            ; if positive, character was 'a' to 'f'
+   addlw    0x20              ; otherwise, shift to next range of digits
+   bnn      adjust            ; if now positive, character was 'A' to 'F'
+   addlw    0x7               ; otherwise, character must have been '0' to '9'
+
+adjust:
+   addlw    0xa               ; shift the result to account for offset
+   andlw    0xf               ; clamp the value to one nybble
+   movwf    ASCII.Scratch
+
+   ; Shift the nybble if necessary, depending on whether it's high or low.
+   tstfsz   ASCII.IsOddNybble ; is this the second nybble in the byte?
+     swapf  ASCII.Scratch, W  ; no, shift it up four bits
+   iorwf    ASCII.Nybbles     ; combine nybbles to form a byte
+
+   ; Toggle flag so we'll update alternating nybbles.
+   comf     ASCII.IsOddNybble
+   bz       stored            ; if we we processed a whole byte, we're done
+
+   ; We have two nybbles, so store the byte they form in the message buffer.
+   movf     ASCII.Nybbles, W
+   call     MODBUS.storeFrameByte
+   clrf     ASCII.Nybbles     ; clear the nybble buffer
+
+stored:
+   return
+
+
 
 ;; ----------------------------------------------
 ;;  void ASCII.timeout()

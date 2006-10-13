@@ -27,7 +27,6 @@
    #include "modbus.inc"
 
    extern   CONF.Mode
-   extern   UART.LastCharacter
 
    extern   ASCII.init
    extern   ISR.high
@@ -40,8 +39,8 @@
    global   MODBUS.State
    global   MODBUS.FrameError
 
-   global   MODBUS.resetMsgBuffer
-   global   MODBUS.writeMsgByte
+   global   MODBUS.resetFrame
+   global   MODBUS.storeFrameByte
 
 
 
@@ -123,14 +122,14 @@ clearInts:
 
 
 ;; ----------------------------------------------
-;;  woid MODBUS.resetMsgBuffer
+;;  woid MODBUS.resetFrame()
 ;;
-MODBUS.resetMsgBuffer:
+MODBUS.resetFrame:
    ; Reset the pointer to the beginning of the buffer.
    movlw    LOW kMsgBuffer
-   movwf    MODBUS.MsgBuffer
+   movwf    FSR1L
    movlw    HIGH kMsgBuffer
-   movwf    MODBUS.MsgBuffer + 1
+   movwf    FSR1H
 
    ; Reset the frame error indicator, since we're starting from scratch.
    clrf     MODBUS.FrameError
@@ -139,27 +138,14 @@ MODBUS.resetMsgBuffer:
 
 
 ;; ----------------------------------------------
-;;  woid MODBUS.writeMsgByte
+;;  woid MODBUS.storeFrameByte( byte value )
 ;;
-MODBUS.writeMsgByte:
-   ; Read the address of the last byte written.
-   movf     MODBUS.MsgBuffer, W
-   movwf    FSR0L
-   movf     MODBUS.MsgBuffer + 1, W
-   movwf    FSR0H
-
+MODBUS.storeFrameByte:
    ; Write the byte indirectly.
-   movff    UART.LastCharacter, POSTINC0
+   movwf    POSTINC1
 ;<debug>
-   movff    UART.LastCharacter, TXREG
+   movwf    TXREG
 ;</debug>
-
-   ; Save the current tail pointer so we can resume there next time.
-   movf     FSR0L, W
-   movwf    MODBUS.MsgBuffer
-   movf     FSR0H, W
-   movwf    MODBUS.MsgBuffer + 1
-
    return
 
 
