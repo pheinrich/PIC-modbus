@@ -33,7 +33,7 @@
 
 
 
-; Count of timer1 overflows in 1 second (~= 77 @ 20 MHz).
+; Count of timer1 overflows in 1 second (~77 @ 20 MHz).
 kOneSecond        equ   1 + (kFrequency / (4 * 65536))
 
 ; State machine constants.
@@ -50,9 +50,9 @@ kState_Waiting    equ   5
 ;;  Macro RESET_TIMER1
 ;;
 ;;  The RESET_TIMER1 macro starts Timer1 in 16-bit timer mode with the max-
-;;  imum possible period, corresponding to a total delay of about 0.013s.
-;;  To measure longer intervals we must count repeated overflows, so this
-;;  macro also clears that counter.
+;;  imum possible period, corresponding to a total delay of about 13ms.  To
+;;  measure longer intervals we must count repeated overflows, so this macro
+;;  also clears that counter.
 ;;
 RESET_TIMER1  macro
    movlw    kOneSecond
@@ -85,11 +85,11 @@ RESET_TIMER1  macro
 .modeovr    access_ovr
 ;; ---------------------------------------------------------------------------
 
-ASCII.Delimiter      res   1     ; frame delimiter character
-ASCII.IsOddNybble    res   1     ; 0 = false, 255 = true
-ASCII.LRC            res   1     ; Longitudinal Redundancy Check
 ASCII.Nybbles        res   1     ; buffers successive hex character codes
-ASCII.Scratch        res   1     ; work variable
+ASCII.IsOddNybble    res   1     ; 0 = false, 255 = true
+ASCII.LRC            res   1     ; Longitudinal Redundancy Checksum
+
+ASCII.Delimiter      res   1     ; frame delimiter character
 ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 
 
@@ -101,13 +101,23 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;; ----------------------------------------------
 ;;  void ASCII.checkParity()
 ;;
+;;  Determines if the last character received by the UART satisfies the parity
+;;  condition configured by the user.  In ASCII mode, each character is seven
+;;  bits; the parity bit is stored in the MSB of the character.
+;;
 ASCII.checkParity:
+   movlw    kParity_None
+   cpfslt   CONF.ParityCheck
+     return
+
    return
 
 
 
 ;; ----------------------------------------------
 ;;  void ASCII.init()
+;;
+;;  Initializes the ASCII mode state machine and some associated variables.
 ;;
 ASCII.init:
    movlw    '\n'              ; delimiter defaults to linefeed
@@ -119,6 +129,12 @@ ASCII.init:
 
 ;; ----------------------------------------------
 ;;  void ASCII.resetFrame()
+;;
+;;  Prepares the message buffer to receive a new frame.  This method is called
+;;  whenever a ":" character is received, since that is the Start of Frame
+;;  indicator in ASCII mode.  Some of the initialization process is shared be-
+;;  tween modes, so this method calls the common code in MODBUS.resetFrame(),
+;;  then performs any ASCII-mode-specific steps.
 ;;
 ASCII.resetFrame:
    ; Do the basic frame reset, which is mode-independent.
@@ -134,6 +150,10 @@ ASCII.resetFrame:
 
 ;; ----------------------------------------------
 ;;  void ASCII.rxCharacter()
+;;
+;;  Updates the state machine in response to a received character.  This may
+;;  involve changing modes, resetting the message buffer, or storing a message
+;;  byte.
 ;;
 ASCII.rxCharacter:
    ; Determine the state of the state machine, since characters received at diff-
@@ -218,10 +238,19 @@ rxWaiting:
 ;; ----------------------------------------------
 ;;  void ASCII.storeFrameByte()
 ;;
+;;  Converts a received character from ASCII-encoded hex to an integer nybble,
+;;  then saves it or combines it with the last nybble received and stores the
+;;  resulting byte in the message buffer.  The LRC is updated with each char-
+;;  acter.
+;;
+;;  Preprocessing incoming characters this way means the message buffer always
+;;  contains a binary message, greatly simplifying message handling, since
+;;  only one reader is necessary for both ASCII and RTU modes.
+;;
 ASCII.storeFrameByte:
    ; Update the Longitudinal Redundancy Checksum.
    movf     UART.LastCharacter, W
-   addwf    ASCII.LRC
+   addwf    ASCII.LRC         ; LRC is a simple sum (without carry)
 
    ; Convert the ASCII character code into the integer value corresponding to the
    ; hexadecimal digit it represents.  '0'-'9' become 0-9; 'A'-'F' and 'a'-'f'
@@ -233,13 +262,12 @@ ASCII.storeFrameByte:
    addlw    0x7               ; otherwise, character must have been '0' to '9'
 
 adjust:
-   addlw    0xa               ; shift the result to account for offset
+   addlw    0xa               ; shift the result to account for the offset
    andlw    0xf               ; clamp the value to one nybble
-   movwf    ASCII.Scratch
 
    ; Shift the nybble if necessary, depending on whether it's high or low.
    tstfsz   ASCII.IsOddNybble ; is this the second nybble in the byte?
-     swapf  ASCII.Scratch, W  ; no, shift it up four bits
+     swapf  WREG              ; no, shift it up four bits
    iorwf    ASCII.Nybbles     ; combine nybbles to form a byte
 
    ; Toggle flag so we'll update alternating nybbles.
@@ -258,6 +286,11 @@ stored:
 
 ;; ----------------------------------------------
 ;;  void ASCII.timeout()
+;;
+;;  Updates the state machine in response to a timer overflow.  The timer is
+;;  started whenever a character is received, and overflows approximately 77
+;;  times a second.  A one second delay between characters indicates a problem
+;;  with the frame, which this method flags, if detected.
 ;;
 ASCII.timeout:
    ; Determine the state of the state machine.  A timeout while receiving or wait-

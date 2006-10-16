@@ -19,7 +19,6 @@
 
    extern   CONF.BaudRate
    extern   CONF.Mode
-   extern   CONF.ParityCheck
    extern   MODBUS.FrameError
 
    extern   ASCII.rxCharacter
@@ -104,10 +103,10 @@ initInts:
 ;;  void UART.rxCharacter()
 ;;
 ;;  Processes a single character after it arrives via the UART.  Framing
-;;  errors and input buffer overflows are detected here.  Parity checking
-;;  (if any) is done by code appropriate to the current mode (RTU or ASCII).
-;;  If all is well, mode then determines which state machine processes the
-;;  received character.
+;;  errors and input buffer overflows are detected here (parity checking, if
+;;  any, is done by code appropriate to the current mode--RTU or ASCII).  If
+;;  all is well, mode then determines which state machine processes the re-
+;;  ceived character.
 ;;
 UART.rxCharacter:
    ; Mask the receiver status register to examine the error bits.

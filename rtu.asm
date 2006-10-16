@@ -97,14 +97,19 @@ RTU.Scratch       res   1     ; work variable
 ;; ----------------------------------------------
 ;;  Delay Timeout Table
 ;;
-;; Precalculate the inter-character and inter-frame timeout delays (in 탎) for
-;; 9600, 19200, and >19200 baud.  For baud rates greater than 19200, the time-
-;; outs are fixed at 750탎 and 1750탎, respectively, to reduce the CPU over-
-;; head of more frequent timer processing (see the Remark in �2.5.1.1 of the
-;; MODBUS over Serial Line Specification and Implementation guide V1.0).  At
-;; slower baud rates, the inter-character timeout is 1.5 times the character
-;; time, the time to transmit one character (11 bits, total); the inter-frame
-;; timeout is 3.5 times the character time.
+;;  Precalculate the inter-character and inter-frame timeout delays (in 탎)
+;;  for 9600, 19200, and >19200 baud.  For baud rates greater than 19200, the
+;;  timeouts are fixed at 750탎 and 1750탎, respectively, to reduce the CPU
+;;  overhead of more frequent timer processing (see the Remark in �2.5.1.1 of
+;;  the MODBUS over Serial Line Specification and Implementation guide V1.0).
+;;  At slower baud rates, the inter-character timeout is 1.5 times the char-
+;;  acter time, the time to transmit one character (11 bits, total); the in-
+;;  ter-frame timeout is 3.5 times the character time.
+;;
+;;  Note that the values below are negative, since the timer interrupt fires
+;;  when the timer overflows from 0xffff to 0x0000.  Also note that the timer
+;;  is incremented every instruction cycle (kFrequency / 4), not every CPU
+;;  cycle.
 ;;
 DelayTable:
    ; Character/frame timers at 9600 baud.
@@ -128,6 +133,9 @@ DelayTable:
 ;;  void RTU.checkParity()
 ;;
 RTU.checkParity:
+   movlw    kParity_None
+   cpfslt   CONF.ParityCheck
+     return
    return
 
 
@@ -141,6 +149,7 @@ RTU.checkParity:
 ;;  method expects the checksum to be initialized to 0xffff before first use.
 ;;
 RTU.crc:
+   
    xorwf    RTU.CRC
    movlw    0x08
    movwf    RTU.Scratch
@@ -183,12 +192,10 @@ RTU.init:
      bra    check9600         ; no, check lower rate
 
    ; The requested baud rate is greater than 19200, so advance the table index.
+   movlw    0x6
    tblrd*+
-   tblrd*+
-   tblrd*+
-   tblrd*+
-   tblrd*+
-   tblrd*+
+   decfsz   WREG
+     bra    $-4
 
 check9600:
    ; Advance the table pointer if required for the requested baud rate.
@@ -197,12 +204,10 @@ check9600:
      bra    copyDelays        ; no, leave the table index undchanged
 
    ; The requested baud rate is greater than 9600, so advance the table index.
+   movlw    0x6
    tblrd*+
-   tblrd*+
-   tblrd*+
-   tblrd*+
-   tblrd*+
-   tblrd*+
+   decfsz   WREG
+     bra    $-4
 
 copyDelays:
    ; Copy the correct table values to two variables in the access area, starting
@@ -210,18 +215,11 @@ copyDelays:
    lfsr     FSR0, RTU.CharTimeout
 
    ; Read the correct timing values from the table.
+   movlw    0x6
    tblrd*+
    movff    TABLAT, POSTINC0
-   tblrd*+
-   movff    TABLAT, POSTINC0
-   tblrd*+
-   movff    TABLAT, POSTINC0
-   tblrd*+
-   movff    TABLAT, POSTINC0
-   tblrd*+
-   movff    TABLAT, POSTINC0
-   tblrd*
-   movff    TABLAT, INDF0
+   decfsz   WREG
+     bra    $-6
 
    ; Initialize the state machine and exit.
    clrf     MODBUS.State
