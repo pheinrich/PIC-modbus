@@ -1,5 +1,5 @@
 // single packet example
-wait 75 ms
+wait 80 ms
 3a
 "5b3048656c6C6F20576f726c64"
 "2030313233343536373839"
