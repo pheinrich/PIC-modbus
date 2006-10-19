@@ -19,9 +19,11 @@
 
    extern   CONF.ParityCheck
    extern   MODBUS.FrameError
+   extern   MODBUS.Scratch
    extern   MODBUS.State
    extern   UART.LastCharacter
 
+   extern   MODBUS.calcParity
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
 
@@ -106,10 +108,24 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;;  bits; the parity bit is stored in the MSB of the character.
 ;;
 ASCII.checkParity:
+   ; If configured for No Parity, don't do any checks.
    movlw    kParity_None
    cpfslt   CONF.ParityCheck
      return
 
+   ; Compute the even parity of the character received, including the parity bit
+   ; in the MSB.
+   movf     UART.LastCharacter, W
+   call     MODBUS.calcParity
+
+   ; If configured for Odd Parity, we complement the result.
+   movlw    kParity_Odd
+   cpfslt   CONF.ParityCheck
+     incf   MODBUS.Scratch
+
+   ; If the final result is not 0, the parity does not match.
+   btfsc    MODBUS.Scratch, 0
+     setf   MODBUS.FrameError
    return
 
 

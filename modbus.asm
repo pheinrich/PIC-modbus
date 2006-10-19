@@ -36,9 +36,11 @@
    extern   RTU.init
    extern   UART.init
 
+   global   MODBUS.Scratch
    global   MODBUS.State
    global   MODBUS.FrameError
 
+   global   MODBUS.calcParity
    global   MODBUS.resetFrame
    global   MODBUS.storeFrameByte
 
@@ -79,12 +81,46 @@
 MODBUS.State      res   1     ; current state of the state machine
 MODBUS.FrameError res   1     ; 0 = false, 255 = true
 MODBUS.MsgBuffer  res   2     ; points to next location to be read or written
+MODBUS.Scratch    res   1     ; temporary work variable
 
 
 
 ;; ---------------------------------------------------------------------------
 .modbus     code
 ;; ---------------------------------------------------------------------------
+
+;; ----------------------------------------------
+;;  byte MODBUS.calcParity( byte value )
+;;
+;;  Calculates the even parity of the byte specified in W.  The even parity is
+;;  the 1-bit sum of all bits in the byte (also equivalent to XORing them all
+;;  together); the odd parity is the complement of that.  The result is re-
+;;  turned in the LSB of W.
+;;
+MODBUS.calcParity:
+   ; Copy W into a temporary variable.
+   movwf    MODBUS.Scratch    ; Scratch = |a|b|c|d|e|f|g|h|
+
+   ; XOR the nybbles of W together.
+   swapf    WREG              ; W = |e|f|g|h|a|b|c|d|
+   xorwf    MODBUS.Scratch    ; Scratch = |e^a|f^b|g^c|h^d|a^e|b^f|c^g|d^h|
+
+   ; Now shift the value by 1 in order to XOR adjacent bits together.
+   rrcf     MODBUS.Scratch, W ; W = |?|e^a|f^b|g^c|h^d|a^e|b^f|c^g|
+   xorwf    MODBUS.Scratch    ; Scratch = |?^e^a|e^a^f^b|f^b^g^c|g^c^h^d|h^d^a^e|a^e^b^f|b^f^c^g|c^g^d^h|
+
+   ; Note that bit 2 = a^e^b^f, which is the parity of half the bits in the byte.
+   ; Bit 0 = c^g^d^h, the parity of the other half, which means bit 2 ^ bit 0 is
+   ; the parity for the whole byte.  If bit 2 = 0, just take the value of bit 0,
+   ; since parity = 0 ^ bit 0 = bit 0.  For bit 2 = 1, the value is complemented,
+   ; since parity = 1 ^ bit 0 = !bit 0.
+   btfsc    MODBUS.Scratch, 2 ; is a^e^b^f = 0?
+     btg    MODBUS.Scratch, 0 ; no, toggle bit 0
+   movf     MODBUS.Scratch, W ; yes, we're done
+
+   return
+   
+
 
 ;; ----------------------------------------------
 ;;  void MODBUS.init()

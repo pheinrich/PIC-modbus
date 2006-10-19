@@ -20,9 +20,11 @@
    extern   CONF.BaudRate
    extern   CONF.ParityCheck
    extern   MODBUS.FrameError
+   extern   MODBUS.Scratch
    extern   MODBUS.State
    extern   UART.LastCharacter
 
+   extern   MODBUS.calcParity
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
 
@@ -136,6 +138,18 @@ RTU.checkParity:
    movlw    kParity_None
    cpfslt   CONF.ParityCheck
      return
+
+   movf     UART.LastCharacter, W
+   call     MODBUS.calcParity
+   btfsc    RCSTA, RX9D
+     incf   MODBUS.Scratch
+
+   movlw    kParity_Odd
+   cpfslt   CONF.ParityCheck
+     incf   MODBUS.Scratch
+
+   btfsc    MODBUS.Scratch, 0
+     setf   MODBUS.FrameError
    return
 
 
