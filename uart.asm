@@ -25,6 +25,7 @@
    extern   RTU.rxCharacter
 
    global   UART.LastCharacter
+   global   UART.LastParity
 
    global   UART.init
    global   UART.rxCharacter
@@ -37,6 +38,7 @@
 ;; ---------------------------------------------------------------------------
 
 UART.LastCharacter      res   1
+UART.LastParity         res   1
 
 
 
@@ -108,6 +110,10 @@ initInts:
 ;;  all is well, mode then determines which state machine processes the re-
 ;;  ceived character.
 ;;
+;;  To prevent illegal reads of the reception buffer register, this method
+;;  initializes UART.LastCharacter with that value, as appropriate.  Similar-
+;;  ly, UART.LastParity will hold the parity of the last character received.
+;;
 UART.rxCharacter:
    ; Mask the receiver status register to examine the error bits.
    movlw    FERR | OERR
@@ -123,9 +129,21 @@ rxChar:
    ; Read the character to clear the interrupt flag.
    movff    RCREG, UART.LastCharacter
 
-   ; Update the appropriate state machine.
-   tstfsz   CONF.Mode         ; are we in RTU transmission mode?
-     goto   ASCII.rxCharacter ; no, process an ASCII character
+   ; Determine how to find the parity bit and which state machine to update.
+   clrf     UART.LastParity   ; assume parity bit is clear
+   movf     CONF.Mode         ; are we in RTU transmission mode?
+   bz       rxRTU             ; yes, process a binary character
+
+   ; ASCII mode, so the parity bit comes from the MSB of the character.
+   btfsc    UART.LastCharacter, 7
+     setf   UART.LastParity   ; copy the MSB as the parity value, then clear it
+   bcf      UART.LastCharacter, 7
+   goto     ASCII.rxCharacter ; update the ASCII state machine
+
+rxRTU:
+   ; RTU mode, so the parity bit comes from the reception status register.
+   btfsc    RCSTA, RX9D
+     setf   UART.LastParity   ; copy the status bit as parity value
    goto     RTU.rxCharacter   ; yes, process a binary character
 
 

@@ -24,6 +24,7 @@
    extern   UART.LastCharacter
 
    extern   MODBUS.calcParity
+   extern   MODBUS.checkParity
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
 
@@ -99,36 +100,6 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;; ---------------------------------------------------------------------------
 .ascii      code
 ;; ---------------------------------------------------------------------------
-
-;; ----------------------------------------------
-;;  void ASCII.checkParity()
-;;
-;;  Determines if the last character received by the UART satisfies the parity
-;;  condition configured by the user.  In ASCII mode, each character is seven
-;;  bits; the parity bit is stored in the MSB of the character.
-;;
-ASCII.checkParity:
-   ; If configured for No Parity, don't do any checks.
-   movlw    kParity_None
-   cpfslt   CONF.ParityCheck
-     return
-
-   ; Compute the even parity of the character received, including the parity bit
-   ; in the MSB.
-   movf     UART.LastCharacter, W
-   call     MODBUS.calcParity
-
-   ; If configured for Odd Parity, we complement the result.
-   movlw    kParity_Odd
-   cpfslt   CONF.ParityCheck
-     incf   MODBUS.Scratch
-
-   ; If the final result is not 0, the parity does not match.
-   btfsc    MODBUS.Scratch, 0
-     setf   MODBUS.FrameError
-   return
-
-
 
 ;; ----------------------------------------------
 ;;  void ASCII.init()
@@ -218,7 +189,7 @@ rxReception:
 
 rxStash:
    ; Stash the character in the message buffer.
-   rcall    ASCII.checkParity ; parity errors don't stop reception, just invalidate frame
+   call     MODBUS.checkParity; parity errors don't stop reception, just invalidate frame
    rcall    ASCII.storeFrameByte
    bra      rxTimer
 

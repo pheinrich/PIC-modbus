@@ -22,9 +22,11 @@
    extern   MODBUS.FrameError
    extern   MODBUS.Scratch
    extern   MODBUS.State
+   extern   UART.LastParity
    extern   UART.LastCharacter
 
    extern   MODBUS.calcParity
+   extern   MODBUS.checkParity
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
 
@@ -128,29 +130,6 @@ DelayTable:
    data     -((kFrequency / 4000000) *  750)    ;  750µs
    data     -((kFrequency / 4000000) * 1750)    ; 1750µs
    data     -((kFrequency / 4000000) * 1000)    ; 1000µs
-
-
-
-;; ----------------------------------------------
-;;  void RTU.checkParity()
-;;
-RTU.checkParity:
-   movlw    kParity_None
-   cpfslt   CONF.ParityCheck
-     return
-
-   movf     UART.LastCharacter, W
-   call     MODBUS.calcParity
-   btfsc    RCSTA, RX9D
-     incf   MODBUS.Scratch
-
-   movlw    kParity_Odd
-   cpfslt   CONF.ParityCheck
-     incf   MODBUS.Scratch
-
-   btfsc    MODBUS.Scratch, 0
-     setf   MODBUS.FrameError
-   return
 
 
 
@@ -283,7 +262,7 @@ rxReception:
 rxStash:
    ; Reception State:  characters received now are buffered until a character gap
    ; is detected.
-   rcall    RTU.checkParity   ; parity errors don't stop reception, just invalidate frame
+   call     MODBUS.checkParity; parity errors don't stop reception, just invalidate frame
    movf     UART.LastCharacter, W
    call     MODBUS.storeFrameByte
    TIMER1   RTU.CharTimeout   ; reset the character timeout timer

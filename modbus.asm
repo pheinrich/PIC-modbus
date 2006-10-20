@@ -27,6 +27,9 @@
    #include "modbus.inc"
 
    extern   CONF.Mode
+   extern   CONF.ParityCheck
+   extern   UART.LastCharacter
+   extern   UART.LastParity
 
    extern   ASCII.init
    extern   ISR.high
@@ -41,6 +44,7 @@
    global   MODBUS.FrameError
 
    global   MODBUS.calcParity
+   global   MODBUS.checkParity
    global   MODBUS.resetFrame
    global   MODBUS.storeFrameByte
 
@@ -120,6 +124,38 @@ MODBUS.calcParity:
 
    return
    
+
+
+;; ----------------------------------------------
+;;  void MODBUS.checkParity()
+;;
+;;  Determines if the last character received by the UART satisfies the parity
+;;  condition configured by the user.
+;;
+MODBUS.checkParity:
+   ; If configured for No Parity, don't do any checks.
+   movlw    kParity_None
+   cpfslt   CONF.ParityCheck
+     return
+
+   ; Compute the even parity of the character received.
+   movf     UART.LastCharacter, W
+   call     MODBUS.calcParity
+
+   ; Add the last received parity bit into the mix.
+   tstfsz   UART.LastParity
+     incf   MODBUS.Scratch
+
+   ; If configured for Odd Parity, we complement the result.
+   movlw    kParity_Odd
+   cpfslt   CONF.ParityCheck
+     incf   MODBUS.Scratch
+
+   ; If the final result is not 0, the parity does not match.
+   btfsc    MODBUS.Scratch, 0
+     setf   MODBUS.FrameError
+   return
+
 
 
 ;; ----------------------------------------------
