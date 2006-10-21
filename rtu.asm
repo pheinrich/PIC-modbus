@@ -22,7 +22,6 @@
    extern   MODBUS.FrameError
    extern   MODBUS.Scratch
    extern   MODBUS.State
-   extern   UART.LastParity
    extern   UART.LastCharacter
 
    extern   MODBUS.calcParity

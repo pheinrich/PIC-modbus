@@ -120,7 +120,8 @@ UART.rxCharacter:
    andwf    RCSTA, W          ; was there a framing error or buffer overflow?
    bz       rxChar            ; no, update the state machine
 
-   ; There was an error, which we must clear and record.
+   ; There was an error, which we must clear and record.  Afterward, we continue
+   ; processing the byte as normal.
    bcf      RCSTA, CREN
    bsf      RCSTA, CREN
    setf     MODBUS.FrameError

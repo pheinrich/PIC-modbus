@@ -97,9 +97,9 @@ MODBUS.Scratch    res   1     ; temporary work variable
 ;;  byte MODBUS.calcParity( byte value )
 ;;
 ;;  Calculates the even parity of the byte specified in W.  The even parity is
-;;  the 1-bit sum of all bits in the byte (also equivalent to XORing them all
+;;  the 1-bit sum of all bits in the byte (also equivalent to XOR-ing them all
 ;;  together); the odd parity is the complement of that.  The result is re-
-;;  turned in the LSB of W.
+;;  turned in the LSB of W and MODBUS.Scratch.
 ;;
 MODBUS.calcParity:
    ; Copy W into a temporary variable.
@@ -114,10 +114,10 @@ MODBUS.calcParity:
    xorwf    MODBUS.Scratch    ; Scratch = |?^e^a|e^a^f^b|f^b^g^c|g^c^h^d|h^d^a^e|a^e^b^f|b^f^c^g|c^g^d^h|
 
    ; Note that bit 2 = a^e^b^f, which is the parity of half the bits in the byte.
-   ; Bit 0 = c^g^d^h, the parity of the other half, which means bit 2 ^ bit 0 is
-   ; the parity for the whole byte.  If bit 2 = 0, just take the value of bit 0,
-   ; since parity = 0 ^ bit 0 = bit 0.  For bit 2 = 1, the value is complemented,
-   ; since parity = 1 ^ bit 0 = !bit 0.
+   ; Bit 0 = c^g^d^h, the parity of the other half, so (bit 2) ^ (bit 0) is the
+   ; parity for the whole byte.  If bit 2 = 0, just take the value of bit 0, since
+   ; parity = 0 ^ (bit 0) = bit 0.  For bit 2 = 1, the value is complemented,
+   ; since parity = 1 ^ (bit 0) = !bit 0.
    btfsc    MODBUS.Scratch, 2 ; is a^e^b^f = 0?
      btg    MODBUS.Scratch, 0 ; no, toggle bit 0
    movf     MODBUS.Scratch, W ; yes, we're done
@@ -130,7 +130,8 @@ MODBUS.calcParity:
 ;;  void MODBUS.checkParity()
 ;;
 ;;  Determines if the last character received by the UART satisfies the parity
-;;  condition configured by the user.
+;;  condition configured by the user.  If not, MODBUS.FrameError is set to
+;;  indicate as much.
 ;;
 MODBUS.checkParity:
    ; If configured for No Parity, don't do any checks.
@@ -180,7 +181,7 @@ asciiInit:
    call     ASCII.init        ; set default delimiter
 
 clearInts:
-   ; Clear all pending peripheral interrupts.
+   ; Clear all pending peripheral interrupt flags.
    clrf     PIR1
    clrf     PIR2
 
