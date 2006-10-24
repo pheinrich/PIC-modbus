@@ -1,0 +1,14 @@
+// single RTU packet example (including even parity bits in MSBs)
+wait 100 ms
+
+// "[Hello World"
+15b 48 65 6c 6C 6F 120 157 6f 72 6c 164
+
+// " 0123456789"
+120 30 131 132 33 134 35 36 137 138 39
+
+// " ABCDEF"
+120 41 42 143 44 145 146
+
+// " abcdef]"
+120 161 162 63 164 65 66 15D
