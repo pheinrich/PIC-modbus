@@ -212,8 +212,11 @@ rxWaiting:
 
    ; A frame delimiter was received.  If no errors were detected with the frame,
    ; process it (otherwise it will be discarded).
-   ; process frame (or not)
+   movf     MODBUS.FrameError ; was there an error during the frame?
+   bnz      rxDone            ; yes, discard the frame (do nothing with it)
 
+   
+rxDone:
    ; Become idle, since we received a complete frame.
    movlw    kState_Idle       ; enter idle state
    movwf    MODBUS.State

@@ -32,6 +32,7 @@
    extern   UART.LastParity
 
    extern   ASCII.init
+   extern   DEVICEID.getAddress
    extern   ISR.high
    extern   ISR.low
    extern   main
@@ -82,6 +83,7 @@
             udata_acs
 ;; ---------------------------------------------------------------------------
 
+MODBUS.Address    res   1     ; uniquely identifies this device on the bus
 MODBUS.State      res   1     ; current state of the state machine
 MODBUS.FrameError res   1     ; 0 = false, 255 = true
 MODBUS.MsgBuffer  res   2     ; points to next location to be read or written
@@ -189,7 +191,11 @@ clearInts:
    bsf      INTCON, PEIE      ; enable all peripheral interrupts
    bsf      INTCON, GIE       ; enable all unmasked interrupts
 
-   ; Enter main loop
+   ; Shadow our address on the bus.
+   call     DEVICEID.getAddress
+   movwf    MODBUS.Address
+
+   ; Enter the main event loop.
    goto     main
 
 

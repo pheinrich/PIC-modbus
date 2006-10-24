@@ -95,7 +95,7 @@ UART.init:
 initInts:
    ; Enable interrupts.
    bsf      PIE1, RCIE        ; character received
-   bsf      PIE1, TXIE        ; character transmitted
+;   bsf      PIE1, TXIE        ; character transmitted
 
    return
 
