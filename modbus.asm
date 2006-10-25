@@ -40,12 +40,14 @@
    extern   RTU.init
    extern   UART.init
 
+   global   MODBUS.Address
    global   MODBUS.Scratch
    global   MODBUS.State
    global   MODBUS.FrameError
 
    global   MODBUS.calcParity
    global   MODBUS.checkParity
+   global   MODBUS.queueMsg
    global   MODBUS.resetFrame
    global   MODBUS.storeFrameByte
 
@@ -143,7 +145,7 @@ MODBUS.checkParity:
 
    ; Compute the even parity of the character received.
    movf     UART.LastCharacter, W
-   call     MODBUS.calcParity
+   rcall    MODBUS.calcParity
 
    ; Add the last received parity bit into the mix.
    tstfsz   UART.LastParity
@@ -197,6 +199,29 @@ clearInts:
 
    ; Enter the main event loop.
    goto     main
+
+
+
+;; ----------------------------------------------
+;;  woid MODBUS.queueMsg()
+;;
+;;  Raises a flag to the main event loop to indicate that a MODBUS message has
+;;  been received and parity, checksum, and target address have been verified.
+;;  It's up to that code to actually process the message contents.
+;;
+;;  The active state machine will remain in kState_MsgQueued for the duration;
+;;  MODBUS.replyMsg() must be called explicitly when processing is complete.
+;;
+MODBUS.queueMsg:
+   return
+
+
+
+;; ----------------------------------------------
+;;  woid MODBUS.replyMsg()
+;;
+MODBUS.replyMsg:
+   return
 
 
 

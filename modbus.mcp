@@ -31,6 +31,9 @@ file_011=yes
 file_012=yes
 file_013=yes
 file_014=yes
+file_015=yes
+file_016=yes
+file_017=yes
 [FILE_INFO]
 file_000=main.asm
 file_001=isr.asm
@@ -47,6 +50,9 @@ file_011=C:\Program Files\Microchip\MPASM Suite\P18F242.INC
 file_012=ascii_oddParity.txt
 file_013=ascii_evenParity.txt
 file_014=ascii_noParity.txt
+file_015=rtu_oddParity.txt
+file_016=rtu_evenParity.txt
+file_017=rtu_noParity.txt
 [SUITE_INFO]
 suite_guid={6B3DAA78-59C1-46DD-B6AA-DBDAE4E06484}
 suite_state=

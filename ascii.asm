@@ -18,6 +18,7 @@
    include "modbus.inc"
 
    extern   CONF.ParityCheck
+   extern   MODBUS.Address
    extern   MODBUS.FrameError
    extern   MODBUS.Scratch
    extern   MODBUS.State
@@ -25,6 +26,7 @@
 
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
+   extern   MODBUS.queueMsg
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
 
@@ -46,6 +48,7 @@ kState_Emission   equ   2
 kState_EmitEnd    equ   3
 kState_Reception  equ   4
 kState_Waiting    equ   5
+kState_MsgQueued  equ   6
 
 
 
@@ -210,17 +213,35 @@ rxWaiting:
    cpfseq   UART.LastCharacter; was a linefeed (or alternative delimiter) received?
      return                   ; no, keep waiting
 
-   ; A frame delimiter was received.  If no errors were detected with the frame,
-   ; process it (otherwise it will be discarded).
-   movf     MODBUS.FrameError ; was there an error during the frame?
-   bnz      rxDone            ; yes, discard the frame (do nothing with it)
+   ; A frame delimiter was received, so verify we didn't detect any overflow or
+   ; parity errors.
+   bcf      PIE1, TMR1IE      ; disable timer1 interrupts
+   movf     MODBUS.FrameError ; was there an error during reception?
+   bnz      rxDone            ; yes, discard the frame
 
-   
+   ; No reception errors, so validate the message is addressed to this device.
+   movf     kMsgBuffer, W     ; is this a broadcast message (target address == 0)?
+   bz       rxChecksum        ; yes, verify the checksum
+   cpfseq   MODBUS.Address    ; no, is it addressed to this device?
+     bra    rxDone            ; no, discard frame  TODO: log event
+
+rxChecksum:
+   ; The LRC is only 8 bits, so the hardest part of verifying it is loading it.
+   movlw    0xff              ; offset -1 from the end of the message buffer
+   movf     PLUSW1, W         ; load the received LRC
+   negf     ASCII.LRC         ; finalize computed LRC with 2s complement
+   cpfseq   ASCII.LRC         ; does received match computed?
+     bra    rxDone            ; no, discard frame  TODO: log event
+
+   ; No reception errors, no checksum errors, and the message is addressed to us.
+   movlw    kState_MsgQueued
+   movwf    MODBUS.State
+   goto     MODBUS.queueMsg   ; let the main event loop to process the message
+
 rxDone:
-   ; Become idle, since we received a complete frame.
+   ; Become idle.
    movlw    kState_Idle       ; enter idle state
    movwf    MODBUS.State
-   bcf      PIE1, TMR1IE      ; disable timer1 interrupts
    return
 
    

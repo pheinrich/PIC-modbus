@@ -41,6 +41,7 @@ kState_Idle       equ   1
 kState_Emission   equ   2
 kState_Reception  equ   3
 kState_CtrlWait   equ   4
+kState_MsgQueued  equ   5
 
 
 
@@ -334,9 +335,10 @@ timeoutCtrlWait:
    ; Control-Wait State:  a timeout here means a full frame timeout period has
    ; elapsed since the last character was received.  If no errors were detected
    ; with the frame, process it (otherwise it will be discarded).
-   ; process frame (or not)
-   nop
+   movf     MODBUS.FrameError ; was there an error during the frame?
+   bnz      timeoutIdle       ; yes, discard the frame (do nothing with it)
 
+   ; Verif
 timeoutIdle:
    ; Become idle, since we know a full frame timeout period has elapsed.
    movlw    kState_Idle       ; enter idle state
