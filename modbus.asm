@@ -50,6 +50,7 @@
    global   MODBUS.queueMsg
    global   MODBUS.resetFrame
    global   MODBUS.storeFrameByte
+   global   MODBUS.validateMsg
 
 
 
@@ -251,6 +252,14 @@ MODBUS.storeFrameByte:
    movwf    TXREG
 ;</debug>
    return
+
+
+
+;; ----------------------------------------------
+;;  boolean MODBUS.validateMsg()
+;;
+MODBUS.validateMsg:
+   retlw    0
 
 
 

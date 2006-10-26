@@ -29,6 +29,7 @@
    extern   MODBUS.queueMsg
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
+   extern   MODBUS.validateMsg
 
    global   ASCII.Delimiter
 
@@ -40,15 +41,6 @@
 
 ; Count of timer1 overflows in 1 second (~77 @ 20 MHz).
 kOneSecond        equ   1 + (kFrequency / (4 * 65536))
-
-; State machine constants.
-kState_Idle       equ   0
-kState_EmitStart  equ   1
-kState_Emission   equ   2
-kState_EmitEnd    equ   3
-kState_Reception  equ   4
-kState_Waiting    equ   5
-kState_MsgQueued  equ   6
 
 
 
@@ -105,35 +97,53 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
+;;  void ASCII.calcLRC()
+;;
+ASCII.calcLRC:
+   ; Initialize the checksum and a pointer to the message buffer.
+   clrf     ASCII.LRC         ; LRC starts at 0
+   lfsr     FSR0, kMsgBuffer  ; FSR0 = head, FSR1 = tail
+
+   ; Back up past the last two characters received, since they represent the
+   ; checksum itself, which we don't want to include in the calculation.
+   movf     POSTDEC1
+   movf     POSTDEC1
+
+lrcLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   FSR1L             ; are low bytes equal?
+     bra    lrcUpdate         ; no, keep going
+
+   movf     FSR0H, W
+   cpfseq   FSR1H             ; are high bytes equal?
+     bra    lrcUpdate         ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.
+   negf     ASCII.LRC         ; LRC is 2s complement of actual sum
+   return
+
+lrcUpdate:
+   ; Update the checksum with the current character.
+   movf     POSTINC0, W       ; read the charecter at head
+   addwf    ASCII.LRC         ; add to sum, discarding carry
+   bra      lrcLoop           ; go back for the next one
+
+
+
+;; ----------------------------------------------
 ;;  void ASCII.init()
 ;;
 ;;  Initializes the ASCII mode state machine and some associated variables.
 ;;
 ASCII.init:
-   movlw    '\n'              ; delimiter defaults to linefeed
+   ; Initialize default frame delimiter.
+   movlw    '\n'
    movwf    ASCII.Delimiter
-   clrf     MODBUS.State      ; start in idle state
-   return
 
-
-
-;; ----------------------------------------------
-;;  void ASCII.resetFrame()
-;;
-;;  Prepares the message buffer to receive a new frame.  This method is called
-;;  whenever a ":" character is received, since that is the Start of Frame
-;;  indicator in ASCII mode.  Some of the initialization process is shared be-
-;;  tween modes, so this method calls the common code in MODBUS.resetFrame(),
-;;  then performs any ASCII-mode-specific steps.
-;;
-ASCII.resetFrame:
-   ; Do the basic frame reset, which is mode-independent.
-   call     MODBUS.resetFrame
-
-   ; Initialize some variables used only in ASCII mode.
-   clrf     ASCII.Nybbles
-   setf     ASCII.IsOddNybble
-   clrf     ASCII.LRC
+   ; Start out Idle.
+   movlw    kState_Idle
+   movwf    MODBUS.State
    return
 
 
@@ -162,7 +172,7 @@ rxReceive:
    movwf    MODBUS.State
 
 rxReset:
-   rcall    ASCII.resetFrame
+   call     MODBUS.resetFrame
 
 rxTimer:
    RESET_TIMER1               ; reset the inter-character delay timeout
@@ -193,7 +203,8 @@ rxReception:
 rxStash:
    ; Stash the character in the message buffer.
    call     MODBUS.checkParity; parity errors don't stop reception, just invalidate frame
-   rcall    ASCII.storeFrameByte
+   movf     UART.LastCharacter, W
+   call     MODBUS.storeFrameByte
    bra      rxTimer
 
 rxWaiting:
@@ -219,24 +230,20 @@ rxWaiting:
    movf     MODBUS.FrameError ; was there an error during reception?
    bnz      rxDone            ; yes, discard the frame
 
-   ; No reception errors, so validate the message is addressed to this device.
-   movf     kMsgBuffer, W     ; is this a broadcast message (target address == 0)?
-   bz       rxChecksum        ; yes, verify the checksum
-   cpfseq   MODBUS.Address    ; no, is it addressed to this device?
-     bra    rxDone            ; no, discard frame  TODO: log event
+   ; Compute the checksum from the original characters, then convert the message
+   ; to the equivalent binary (RTU) format.  Once that's done, we can use common
+   ; code to validate the address, verify the checksum, and parse the contents.
+   rcall    ASCII.calcLRC
+   rcall    ASCII.xformRTU
 
-rxChecksum:
-   ; The LRC is only 8 bits, so the hardest part of verifying it is loading it.
-   movlw    0xff              ; offset -1 from the end of the message buffer
-   movf     PLUSW1, W         ; load the received LRC
-   negf     ASCII.LRC         ; finalize computed LRC with 2s complement
-   cpfseq   ASCII.LRC         ; does received match computed?
-     bra    rxDone            ; no, discard frame  TODO: log event
+   call     MODBUS.validateMsg
+   tstfsz   WREG              ; was the validation successful?
+     bra    rxDone            ; no, discard the frame
 
    ; No reception errors, no checksum errors, and the message is addressed to us.
    movlw    kState_MsgQueued
    movwf    MODBUS.State
-   goto     MODBUS.queueMsg   ; let the main event loop to process the message
+   goto     MODBUS.queueMsg   ; let the main event loop process the message
 
 rxDone:
    ; Become idle.
@@ -322,6 +329,16 @@ timeoutUpdate:
 
    setf     MODBUS.FrameError ; yes, so frame is incomplete
    bcf      PIE1, TMR1IE      ; disable redundant timer1 interrupts
+   return
+
+
+
+;; ----------------------------------------------
+;;  void ASCII.xformRTU()
+;;
+ASCII.xformRTU:
+   clrf     ASCII.Nybbles
+   setf     ASCII.IsOddNybble
    return
 
 

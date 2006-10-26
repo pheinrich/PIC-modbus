@@ -44,3 +44,13 @@ kParity_None equ  2
 ; Enumerate our transmission modes.
 kMode_RTU   equ   0           ; 8-bit character + start/stop/parity = 11 bits total
 kMode_ASCII equ   1           ; 7-bit character + start/stop/parity = 10 bits total
+
+; State machine constants.
+kState_Init       equ   0
+kState_Idle       equ   1
+kState_EmitStart  equ   2
+kState_Emission   equ   3
+kState_EmitEnd    equ   4
+kState_Reception  equ   5
+kState_Waiting    equ   6
+kState_MsgQueued  equ   7

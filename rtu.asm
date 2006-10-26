@@ -35,16 +35,6 @@
 
 
 
-; State machine constants.
-kState_Init       equ   0
-kState_Idle       equ   1
-kState_Emission   equ   2
-kState_Reception  equ   3
-kState_CtrlWait   equ   4
-kState_MsgQueued  equ   5
-
-
-
 ;; ----------------------------------------------
 ;;  Macro TIMER1
 ;;
@@ -270,7 +260,7 @@ rxStash:
 
 rxCtrlWait:
    ; Check for the next state concerned with received characters.
-   movlw    kState_CtrlWait
+   movlw    kState_Waiting
    cpfseq   MODBUS.State      ; is state machine in control-wait state?
      return                   ; no, we can exit
 
@@ -314,21 +304,21 @@ timeoutReception:
    ; Check for the next state concerned with timeouts.
    movlw    kState_Reception
    cpfseq   MODBUS.State      ; is state machine in reception state?
-     bra    timeoutCtrlWait   ; no, check if control-wait state
+     bra    timeoutWaiting    ; no, check if control-wait state
 
    ; Reception State:  if a timeout occurs here, it must be the inter-character
    ; delay.  We switch to the control-wait state and postpone the timeout until
    ; the end of a full frame timeout period.
    ; check address            ; check if we are the intended recipient
    ; CRC                      ; calculate CRC if necessary
-   movlw    kState_CtrlWait   ; enter control-wait state
+   movlw    kState_Waiting    ; enter control-wait state
    movwf    MODBUS.State
    TIMER1   RTU.TimeoutDelta  ; reset frame timeout timer
    return
 
-timeoutCtrlWait:
+timeoutWaiting:
    ; Check for the next state concerned with timeouts.
-   movlw    kState_CtrlWait
+   movlw    kState_Waiting
    cpfseq   MODBUS.State      ; is state machine in control-wait state?
      return                   ; no, we can exit
 
