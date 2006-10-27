@@ -4,6 +4,9 @@ wait 100 ms
 // ":" (Start of Frame)
 ba
 
+// "01" (Target address)
+b0 31
+
 // "5b48656c6C6F20576f726c64" = "[Hello World"
 b5 62 34 38 b6 b5 b6 e3 b6 43 b6 46 32 b0 b5 37 b6 e6 37 32 b6 e3 b6 34
 // "2030313233343536373839" = " 0123456789"
@@ -13,8 +16,8 @@ b5 62 34 38 b6 b5 b6 e3 b6 43 b6 46 32 b0 b5 37 b6 e6 37 32 b6 e3 b6 34
 // "206162636465665D" = " abcdef]"
 32 b0 b6 31 b6 32 b6 b3 b6 34 b6 b5 b6 b6 35 c4
 
-// "9e" = checksum
-b9 e5
+// "3d" = checksum
+b3 64
 
 // "\r\n" (End of Frame)
 0d 8a

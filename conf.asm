@@ -28,7 +28,7 @@
 
 
 ;; ----------------------------------------------
-;;  Macro TSSC
+;;  Macro TSSC index
 ;;
 ;;  The TSSC macro (Test Switch Skip if Closed) tests the position of a con-
 ;;  figuration switch, skipping the following instruction if the switch is
@@ -43,7 +43,7 @@ TSSC        macro index
 
 
 ;; ----------------------------------------------
-;;  Macro TSSO
+;;  Macro TSSO index
 ;;
 ;;  The TSSO macro (Test Switch Skip if Open) tests the position of a config-
 ;;  uration switch, skipping the following instruction if the switch is open
@@ -58,7 +58,7 @@ TSSO        macro index
 
 
 ;; ----------------------------------------------
-;;  Macro BDEF
+;;  Macro BDEF label
 ;;
 ;;  The BDEF macro (Branch if Default) tests the "factory defaults" jumper
 ;;  (JP1) to determine if the configuration switches should be ignored.  If

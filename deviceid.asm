@@ -34,7 +34,7 @@
 .eeprom     code     0xf00000
 ;; ---------------------------------------------------------------------------
 
-EEPROM.Address    de    0xcb
+EEPROM.Address    de    0x1
 
 
 
@@ -70,7 +70,7 @@ DEVICEID.UserApplicationName:
 ;;
 ;;  Reads the device address from EEPROM memory.  The address uniquely ident-
 ;;  ifies this physical device on the MODBUS bus.  It's stored in EEPROM to
-;;  allow for updates via a user command.
+;;  allow for simple updates via a user command.
 ;;
 DEVICEID.getAddress:
    ; Set up to read EEPROM memory.

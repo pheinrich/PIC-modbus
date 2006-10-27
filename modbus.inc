@@ -54,3 +54,17 @@ kState_EmitEnd    equ   4
 kState_Reception  equ   5
 kState_Waiting    equ   6
 kState_MsgQueued  equ   7
+
+
+
+;; ----------------------------------------------
+;;  Macro LDADDR from, to
+;;
+;;  The LDADDR macro transfers an address word between file registers.  That
+;;  is, it copies the copies two registers starting at 'from' to the two
+;;  registers starting at 'to'.
+;;
+LDADDR      macro from, to
+   movff    from, to
+   movff    from + 1, to + 1
+   endm

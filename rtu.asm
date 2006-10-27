@@ -36,16 +36,17 @@
 
 
 ;; ----------------------------------------------
-;;  Macro TIMER1
+;;  Macro TIMER1 timeout
 ;;
 ;;  The TIMER1 macro starts Timer1 in 16-bit timer mode.  The parameter
-;;  indicates how many instruction cycles should elapse before overflow (re-
-;;  sulting in a timer interrupt).  Since overflow occurs when the timer goes
-;;  from 0xffff to 0x0000, the parameter is a negative number.  Four system
-;;  cycles correspond to one instruction cycle, so a 20MHz clock means in-
-;;  structions execute at 5MHz, which means each instruction takes 0.2µs
-;;  (200ns).  This macro should only be included in code called when Timer1
-;;  interrupts are disabled.
+;;  points to a 16-bit number indicating how many instruction cycles should
+;;  elapse before overflow (resulting in a timer interrupt).  Since overflow
+;;  occurs when the timer goes from 0xffff to 0x0000, the number is negative.
+;;
+;;  Four system cycles correspond to one instruction cycle, so a 20MHz clock
+;;  means instructions execute at 5MHz, which means each instruction takes
+;;  0.2µs (200ns).  This macro should only be included in code called when
+;;  Timer1 interrupts are disabled.
 ;;
 TIMER1      macro timeout
    ; Stop the timer and prepare to initialize its countdown period.

@@ -19,10 +19,14 @@
 
    extern   CONF.ParityCheck
    extern   MODBUS.Address
+   extern   MODBUS.Checksum
    extern   MODBUS.FrameError
+   extern   MODBUS.MsgTail
    extern   MODBUS.Scratch
    extern   MODBUS.State
    extern   UART.LastCharacter
+
+   global   ASCII.Delimiter
 
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
@@ -30,8 +34,6 @@
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
    extern   MODBUS.validateMsg
-
-   global   ASCII.Delimiter
 
    global   ASCII.init
    global   ASCII.rxCharacter
@@ -83,10 +85,6 @@ RESET_TIMER1  macro
 .modeovr    access_ovr
 ;; ---------------------------------------------------------------------------
 
-ASCII.Nybbles        res   1     ; buffers successive hex character codes
-ASCII.IsOddNybble    res   1     ; 0 = false, 255 = true
-ASCII.LRC            res   1     ; Longitudinal Redundancy Checksum
-
 ASCII.Delimiter      res   1     ; frame delimiter character
 ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 
@@ -99,10 +97,17 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;; ----------------------------------------------
 ;;  void ASCII.calcLRC()
 ;;
+;;  Calculates the Longitudinal Redundancy Checksum on the ASCII characters in
+;;  the message buffer, not including the checksum at the end (inserted by the
+;;  sender).  The LRC is a simple sum, discarding all carries, which is then
+;;  2s-complemented.  It's an 8-bit value, so the upper byte of the checksum
+;;  is set to be 0.
+;;
 ASCII.calcLRC:
    ; Initialize the checksum and a pointer to the message buffer.
-   clrf     ASCII.LRC         ; LRC starts at 0
-   lfsr     FSR0, kMsgBuffer  ; FSR0 = head, FSR1 = tail
+   clrf     MODBUS.Checksum   ; LRC starts at 0
+   clrf     MODBUS.Checksum + 1
+   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (FSR1 = message tail)
 
    ; Back up past the last two characters received, since they represent the
    ; checksum itself, which we don't want to include in the calculation.
@@ -120,14 +125,36 @@ lrcLoop:
      bra    lrcUpdate         ; no, keep going
 
    ; The head and tail pointers are equal, so we're done.
-   negf     ASCII.LRC         ; LRC is 2s complement of actual sum
+   negf     MODBUS.Checksum   ; LRC is 2s complement of actual sum
    return
 
 lrcUpdate:
    ; Update the checksum with the current character.
    movf     POSTINC0, W       ; read the charecter at head
-   addwf    ASCII.LRC         ; add to sum, discarding carry
+   addwf    MODBUS.Checksum   ; add to sum, discarding carry
    bra      lrcLoop           ; go back for the next one
+
+
+
+;; ----------------------------------------------
+;;  byte ASCII.char2Hex( byte ascii )
+;;
+;;  Converts the specified ASCII character code into the integer value corre-
+;;  sponding to the hexadecimal digit it represents.  '0'-'9' become 0-9;
+;;  'A'-'F' and 'a'-'f' become 10-15.
+;;
+ASCII.char2Hex:
+   ; Shift the character.
+   addlw    0x9f
+   bnn      adjust            ; if positive, character was 'a' to 'f'
+   addlw    0x20              ; otherwise, shift to next range of digits
+   bnn      adjust            ; if now positive, character was 'A' to 'F'
+   addlw    0x7               ; otherwise, character must have been '0' to '9'
+
+adjust:
+   addlw    0xa               ; shift the result to account for the alpha offset
+   andlw    0xf               ; clamp the value to one nybble
+   return
 
 
 
@@ -233,6 +260,7 @@ rxWaiting:
    ; Compute the checksum from the original characters, then convert the message
    ; to the equivalent binary (RTU) format.  Once that's done, we can use common
    ; code to validate the address, verify the checksum, and parse the contents.
+   LDADDR   MODBUS.MsgTail, FSR1L
    rcall    ASCII.calcLRC
    rcall    ASCII.xformRTU
 
@@ -252,55 +280,6 @@ rxDone:
    return
 
    
-
-;; ----------------------------------------------
-;;  void ASCII.storeFrameByte()
-;;
-;;  Converts a received character from ASCII-encoded hex to an integer nybble,
-;;  then saves it or combines it with the last nybble received and stores the
-;;  resulting byte in the message buffer.  The LRC is updated with each char-
-;;  acter.
-;;
-;;  Preprocessing incoming characters this way means the message buffer always
-;;  contains a binary message, greatly simplifying message handling, since
-;;  only one reader is necessary for both ASCII and RTU modes.
-;;
-ASCII.storeFrameByte:
-   ; Update the Longitudinal Redundancy Checksum.
-   movf     UART.LastCharacter, W
-   addwf    ASCII.LRC         ; LRC is a simple sum (without carry)
-
-   ; Convert the ASCII character code into the integer value corresponding to the
-   ; hexadecimal digit it represents.  '0'-'9' become 0-9; 'A'-'F' and 'a'-'f'
-   ; become 10-15.
-   addlw    0x9f
-   bnn      adjust            ; if positive, character was 'a' to 'f'
-   addlw    0x20              ; otherwise, shift to next range of digits
-   bnn      adjust            ; if now positive, character was 'A' to 'F'
-   addlw    0x7               ; otherwise, character must have been '0' to '9'
-
-adjust:
-   addlw    0xa               ; shift the result to account for the offset
-   andlw    0xf               ; clamp the value to one nybble
-
-   ; Shift the nybble if necessary, depending on whether it's high or low.
-   tstfsz   ASCII.IsOddNybble ; is this the second nybble in the byte?
-     swapf  WREG              ; no, shift it up four bits
-   iorwf    ASCII.Nybbles     ; combine nybbles to form a byte
-
-   ; Toggle flag so we'll update alternating nybbles.
-   comf     ASCII.IsOddNybble
-   bz       stored            ; if we we processed a whole byte, we're done
-
-   ; We have two nybbles, so store the byte they form in the message buffer.
-   movf     ASCII.Nybbles, W
-   call     MODBUS.storeFrameByte
-   clrf     ASCII.Nybbles     ; clear the nybble buffer
-
-stored:
-   return
-
-
 
 ;; ----------------------------------------------
 ;;  void ASCII.timeout()
@@ -336,10 +315,50 @@ timeoutUpdate:
 ;; ----------------------------------------------
 ;;  void ASCII.xformRTU()
 ;;
+;;  Converts the message in the message buffer to binary (RTU) format.  Each
+;;  original character contributes one nybble, so the result is 50% smaller.
+;;  The main advantage, however, is being able to share common code to verify
+;;  address, validate checksum, and parse ASCII and RTU messages.
+;;
 ASCII.xformRTU:
-   clrf     ASCII.Nybbles
-   setf     ASCII.IsOddNybble
+   ; Initialize some pointers.
+   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (ASCII)
+   movf     POSTINC1
+   movf     POSTINC1          ; FSR1 = message tail (ASCII)
+   lfsr     FSR2, kMsgBuffer  ; FSR2 = message tail (RTU)
+
+xformLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   FSR1L             ; are low bytes equal?
+     bra    xformUpdate       ; no, keep going
+
+   movf     FSR0H, W
+   cpfseq   FSR1H             ; are high bytes equal?
+     bra    xformUpdate       ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.  The last thing we do is
+   ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
+   ; like a 16-bit little-endian word to mimic the CRC16 used in RTU mode.
+   clrf     POSTINC2
+   LDADDR   FSR2L, MODBUS.MsgTail
    return
+
+xformUpdate:
+   ; Read the next two characters and combine them into a single byte.
+   movf     POSTINC0, W       ; read the first charecter
+   rcall    ASCII.char2Hex    ; convert to nybble
+   swapf    WREG
+   movwf    MODBUS.Scratch
+
+   movf     POSTINC0, W       ; read the second character
+   rcall    ASCII.char2Hex    ; convert to nybble
+   iorwf    MODBUS.Scratch, W
+
+   ; Store the byte back into buffer.  We'll never catch up to our read pointer
+   ; since it's moving twice as fast.
+   movwf    POSTINC2
+   bra      xformLoop         ; go back for the next pair
 
 
 

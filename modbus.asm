@@ -31,19 +31,20 @@
    extern   UART.LastCharacter
    extern   UART.LastParity
 
+   global   MODBUS.Address
+   global   MODBUS.Checksum
+   global   MODBUS.FrameError
+   global   MODBUS.MsgTail
+   global   MODBUS.Scratch
+   global   MODBUS.State
+
    extern   ASCII.init
    extern   DEVICEID.getAddress
    extern   ISR.high
-   extern   ISR.low
    extern   main
    extern   CONF.init
    extern   RTU.init
    extern   UART.init
-
-   global   MODBUS.Address
-   global   MODBUS.Scratch
-   global   MODBUS.State
-   global   MODBUS.FrameError
 
    global   MODBUS.calcParity
    global   MODBUS.checkParity
@@ -74,23 +75,16 @@
 
 
 ;; ---------------------------------------------------------------------------
-.isvLow     code     0x0018
-;; ---------------------------------------------------------------------------
-
-   ; Jump to low-priority interrupt service routine in relocatable code block.
-   goto     ISR.low
-
-
-
-;; ---------------------------------------------------------------------------
             udata_acs
 ;; ---------------------------------------------------------------------------
 
 MODBUS.Address    res   1     ; uniquely identifies this device on the bus
 MODBUS.State      res   1     ; current state of the state machine
 MODBUS.FrameError res   1     ; 0 = false, 255 = true
-MODBUS.MsgBuffer  res   2     ; points to next location to be read or written
 MODBUS.Scratch    res   1     ; temporary work variable
+
+MODBUS.MsgTail    res   2     ; points to next location to be read or written
+MODBUS.Checksum   res   2     ; LRC or CRC, depending on mode (ASCII or RTU)
 
 
 
@@ -194,7 +188,7 @@ clearInts:
    bsf      INTCON, PEIE      ; enable all peripheral interrupts
    bsf      INTCON, GIE       ; enable all unmasked interrupts
 
-   ; Shadow our address on the bus.
+   ; Shadow copy our address on the bus.
    call     DEVICEID.getAddress
    movwf    MODBUS.Address
 
@@ -232,9 +226,9 @@ MODBUS.replyMsg:
 MODBUS.resetFrame:
    ; Reset the pointer to the beginning of the buffer.
    movlw    LOW kMsgBuffer
-   movwf    FSR1L
+   movwf    MODBUS.MsgTail
    movlw    HIGH kMsgBuffer
-   movwf    FSR1H
+   movwf    MODBUS.MsgTail + 1
 
    ; Reset the frame error indicator, since we're starting from scratch.
    clrf     MODBUS.FrameError
@@ -246,8 +240,17 @@ MODBUS.resetFrame:
 ;;  woid MODBUS.storeFrameByte( byte value )
 ;;
 MODBUS.storeFrameByte:
+   ; Get a pointer to the next buffer location to write.
+   movff    MODBUS.MsgTail, FSR1L
+   movff    MODBUS.MsgTail + 1, FSR1H
+
    ; Write the byte indirectly.
    movwf    POSTINC1
+
+   ; Save the new tail pointer for next time.
+   movff    FSR1L, MODBUS.MsgTail
+   movff    FSR1H, MODBUS.MsgTail + 1
+
 ;<debug>
    movwf    TXREG
 ;</debug>
@@ -259,7 +262,27 @@ MODBUS.storeFrameByte:
 ;;  boolean MODBUS.validateMsg()
 ;;
 MODBUS.validateMsg:
-   retlw    0
+   ; Verify the message is addressed to this device.
+   movf     kMsgBuffer, W     ; is this a broadcast message?
+   bz       valChecksum       ; yes, validate the checksum
+   cpfseq   MODBUS.Address    ; no, is it addressed to this specific device?
+     retlw  0xff              ; no, discard frame  TODO: log event
+
+valChecksum:
+   ; Set a pointer to the last byte in the message buffer.
+   LDADDR   MODBUS.MsgTail, FSR0L
+   movf     POSTDEC0
+
+   ; Compare the checksum included in the message to the one we calculated.
+   movf     POSTDEC0, W       ; fetch the MSB
+   cpfseq   MODBUS.Checksum + 1; does it match the computed value?
+     retlw  0xff              ; no, discard the frame  TODO: log event
+
+   movf     INDF0, W          ; yes, fetch the LSB
+   cpfseq   MODBUS.Checksum   ; does it match the computed value?
+     retlw  0xff              ; no, discard the frame  TODO: log event
+
+   retlw    0                 ; yes, success
 
 
 
