@@ -21,11 +21,11 @@
    extern   CONF.Mode
    extern   MODBUS.FrameError
 
-   extern   ASCII.rxCharacter
-   extern   RTU.rxCharacter
-
    global   UART.LastCharacter
    global   UART.LastParity
+
+   extern   ASCII.rxCharacter
+   extern   RTU.rxCharacter
 
    global   UART.init
    global   UART.rxCharacter
