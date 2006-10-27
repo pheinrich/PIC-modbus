@@ -1,6 +1,9 @@
 // single RTU packet example (including odd parity bits in MSBs)
 wait 100 ms
 
+// Target address
+01
+
 // "[Hello World"
 5b 148 165 16c 16C 16F 20 57 16f 172 16c 64
 
@@ -12,3 +15,6 @@ wait 100 ms
 
 // " abcdef]"
 20 61 62 163 64 165 166 5D
+
+// Checksum
+80 80

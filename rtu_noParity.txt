@@ -1,6 +1,9 @@
 // single RTU packet example (with no parity bits)
 wait 100 ms
 
+// Target address
+01
+
 // "[Hello World"
 5b 48 65 6c 6C 6F 20 57 6f 72 6c 64
 
@@ -12,3 +15,6 @@ wait 100 ms
 
 // " abcdef]"
 20 61 62 63 64 65 66 5D
+
+// CRC-16
+00 00
