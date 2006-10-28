@@ -17,8 +17,6 @@
 
    include "modbus.inc"
 
-   extern   CONF.ParityCheck
-   extern   MODBUS.Address
    extern   MODBUS.Checksum
    extern   MODBUS.FrameError
    extern   MODBUS.MsgTail

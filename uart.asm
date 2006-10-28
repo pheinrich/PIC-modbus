@@ -116,7 +116,7 @@ initInts:
 ;;
 UART.rxCharacter:
    ; Mask the receiver status register to examine the error bits.
-   movlw    FERR | OERR
+   movlw    (1 << FERR) | (1 << OERR)
    andwf    RCSTA, W          ; was there a framing error or buffer overflow?
    bz       rxChar            ; no, update the state machine
 

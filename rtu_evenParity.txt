@@ -2,7 +2,7 @@
 wait 100 ms
 
 // Target address
-81
+101
 
 // "[Hello World"
 15b 48 65 6c 6C 6F 120 157 6f 72 6c 164
@@ -17,4 +17,4 @@ wait 100 ms
 120 161 162 63 164 65 66 15D
 
 // CRC-16
-00 00
+191 10d

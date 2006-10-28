@@ -18,16 +18,19 @@
    include "modbus.inc"
 
    extern   CONF.BaudRate
-   extern   CONF.ParityCheck
+   extern   MODBUS.Checksum
    extern   MODBUS.FrameError
+   extern   MODBUS.MsgTail
    extern   MODBUS.Scratch
    extern   MODBUS.State
    extern   UART.LastCharacter
 
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
+   extern   MODBUS.queueMsg
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
+   extern   MODBUS.validateMsg
 
    global   RTU.init
    global   RTU.rxCharacter
@@ -79,8 +82,6 @@ TIMER1      macro timeout
 RTU.CharTimeout   res   2     ; the inter-character timeout, in µs
 RTU.FrameTimeout  res   2     ; the inter-frame timeout, in µs
 RTU.TimeoutDelta  res   2     ; difference between timeout values
-
-RTU.CRC           res   2     ; Cyclical Redundancy Check
 RTU.Scratch       res   1     ; work variable
 
 
@@ -132,27 +133,55 @@ DelayTable:
 ;;  polynomial used by MODBUS is x^16 + x^15 + x^13 + x^0 (0xa001).  This
 ;;  method expects the checksum to be initialized to 0xffff before first use.
 ;;
-RTU.crc:
-   
-   xorwf    RTU.CRC
-   movlw    0x08
-   movwf    RTU.Scratch
+RTU.calcCRC:
+   ; Initialize the checksum and a pointer to the message buffer.
+   setf     MODBUS.Checksum   ; CRC starts at 0xffff
+   setf     MODBUS.Checksum + 1
+   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (FSR1 = message tail)
 
-xorBit:
-   bcf      STATUS, C
-   rrcf     RTU.CRC + 1
-   rrcf     RTU.CRC
-   bnc      nextBit
+   ; Back up past the last two bytes received, since they're the checksum itself,
+   ; which we don't want to include in the calculation.
+   movf     POSTDEC1
+   movf     POSTDEC1
 
-   movlw    0xa0
-   xorwf    RTU.CRC + 1
-   movlw    0x01
-   xorwf    RTU.CRC
+crcLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   FSR1L             ; are low bytes equal?
+     bra    crcUpdate         ; no, keep going
 
-nextBit:
-   decfsz   RTU.Scratch
-     bra    xorBit
+   movf     FSR0H, W
+   cpfseq   FSR1H             ; are high bytes equal?
+     bra    crcUpdate         ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.
    return
+
+crcUpdate:
+   ; Update the checksum with the current byte.
+   movf     POSTINC0, W       ; read the byte at head
+   xorwf    MODBUS.Checksum   ; add it to the checksum's low byte
+   movlw    0x08              ; prepare to loop through all bits
+   movwf    MODBUS.Scratch
+
+crcXOR:
+   ; Shift the checksum one bit.
+   bcf      STATUS, C         ; shift 0 into the MSB
+   rrcf     MODBUS.Checksum + 1
+   rrcf     MODBUS.Checksum   ; was the LSB set?
+   bnc      crcBit            ; no, process the next bit
+
+   ; The LSB was set, so apply the polynomial.
+   movlw    0xa0
+   xorwf    MODBUS.Checksum + 1
+   movlw    0x01
+   xorwf    MODBUS.Checksum
+
+crcBit:
+   ; Repeat for every bit in the current byte.
+   decfsz   MODBUS.Scratch
+     bra    crcXOR
+   bra      crcLoop
 
 
 
@@ -289,7 +318,7 @@ RTU.timeout:
 
    ; Initial State:  a timeout here indicates a full frame timeout period has
    ; elapsed.  It's now safe to enter the idle state.
-   bra      timeoutIdle
+   bra      timeoutDone
 
 timeoutEmission:
    ; Check for the next state concerned with timeouts.
@@ -299,7 +328,7 @@ timeoutEmission:
 
    ; Emission State:  a timeout here indicates our emission has been set off by a
    ; full frame timeout period.  We're idle again.
-   bra      timeoutIdle
+   bra      timeoutDone
 
 timeoutReception:
    ; Check for the next state concerned with timeouts.
@@ -310,8 +339,6 @@ timeoutReception:
    ; Reception State:  if a timeout occurs here, it must be the inter-character
    ; delay.  We switch to the control-wait state and postpone the timeout until
    ; the end of a full frame timeout period.
-   ; check address            ; check if we are the intended recipient
-   ; CRC                      ; calculate CRC if necessary
    movlw    kState_Waiting    ; enter control-wait state
    movwf    MODBUS.State
    TIMER1   RTU.TimeoutDelta  ; reset frame timeout timer
@@ -324,13 +351,26 @@ timeoutWaiting:
      return                   ; no, we can exit
 
    ; Control-Wait State:  a timeout here means a full frame timeout period has
-   ; elapsed since the last character was received.  If no errors were detected
-   ; with the frame, process it (otherwise it will be discarded).
+   ; elapsed since the last character was received.  Verify we didn't detect any
+   ; overflow or parity errors.
    movf     MODBUS.FrameError ; was there an error during the frame?
-   bnz      timeoutIdle       ; yes, discard the frame (do nothing with it)
+   bnz      timeoutDone       ; yes, discard the frame (do nothing with it)
 
-   ; Verif
-timeoutIdle:
+   ; Compute the checksum of the message so it can be validated, along with the
+   ; target address.
+   LDADDR   MODBUS.MsgTail, FSR1L
+   rcall    RTU.calcCRC
+
+   call     MODBUS.validateMsg
+   tstfsz   WREG              ; was the validation successful?
+     bra    timeoutDone       ; no, discard the frame
+
+   ; No reception errors, no checksum errors, and the message is addressed to us.
+   movlw    kState_MsgQueued
+   movwf    MODBUS.State
+   goto     MODBUS.queueMsg   ; let the main event loop process the message
+
+timeoutDone:
    ; Become idle, since we know a full frame timeout period has elapsed.
    movlw    kState_Idle       ; enter idle state
    movwf    MODBUS.State
