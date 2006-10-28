@@ -82,7 +82,6 @@ TIMER1      macro timeout
 RTU.CharTimeout   res   2     ; the inter-character timeout, in µs
 RTU.FrameTimeout  res   2     ; the inter-frame timeout, in µs
 RTU.TimeoutDelta  res   2     ; difference between timeout values
-RTU.Scratch       res   1     ; work variable
 
 
 

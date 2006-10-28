@@ -27,6 +27,7 @@
    #include "modbus.inc"
 
    extern   CONF.Mode
+   extern   CONF.NoChecksum
    extern   CONF.ParityCheck
    extern   UART.LastCharacter
    extern   UART.LastParity
@@ -269,6 +270,10 @@ MODBUS.validateMsg:
      retlw  0xff              ; no, discard frame  TODO: log event
 
 valChecksum:
+   ; If checksum validation is turned off, we're done.
+   tstfsz   CONF.NoChecksum
+     retlw  0
+
    ; Set a pointer to the last byte in the message buffer.
    LDADDR   MODBUS.MsgTail, FSR0L
    movf     POSTDEC0

@@ -21,6 +21,7 @@
 
    global   CONF.BaudRate
    global   CONF.Mode
+   global   CONF.NoChecksum
    global   CONF.ParityCheck
 
    global   CONF.init
@@ -79,6 +80,7 @@ BDEF        macro label
 
 CONF.BaudRate           res   1
 CONF.Mode               res   1
+CONF.NoChecksum         res   1
 CONF.ParityCheck        res   1
 
 
@@ -102,16 +104,17 @@ CONF.init:
    bcf      INTCON2, RBPU     ; enable weak pull-ups
 
    ; Read the switches to update the associated configuration variables.
+   rcall    CONF.getMode
+   movwf    CONF.Mode         ; SW1
+
    rcall    CONF.getBaudRate
    movwf    CONF.BaudRate     ; SW2-SW3
 
-   rCall    CONF.getMode
-   movlw    kMode_RTU
-   movwf    CONF.Mode         ; SW1
-
-   rCall    CONF.getParityCheck
+   rcall    CONF.getParityCheck
    movwf    CONF.ParityCheck  ; SW4-SW5
 
+   rcall    CONF.getNoChecksum
+   movwf    CONF.NoChecksum   ; SW6
    return
 
 
@@ -179,6 +182,30 @@ CONF.getMode:
 defMode:
      retlw  kMode_RTU         ; if open, use RTU (binary) mode
    retlw    kMode_ASCII       ; if closed, use ASCII (text) mode
+
+
+
+;; ----------------------------------------------
+;;  boolean CONF.getNoChecksum()
+;;
+;;  If JP1 is shorted (low), the default checksum handling is used.  That is,
+;;  the checksum will be computed and verified against the one included in the
+;;  message.  If not, the handling is determined from the state of SW6:
+;;
+;;    SW6  Checksum Handling
+;;     0    Checksum will be computed and verified
+;;     1    Checksum must be present, but value is not checked
+;;
+CONF.getNoChecksum:
+   ; Determine if the configuration switch is active.
+   BDEF     defMode           ; use defaults if JP1 is shorted
+
+   ; Read hardware switch to determine desired mode.
+   TSSC     6                 ; test SW6
+
+defChecksum:
+     retlw  0x00              ; if open, use checksum
+   retlw    0xff              ; if closed, expect checksum but don't check it
 
 
 
