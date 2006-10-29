@@ -82,7 +82,7 @@
 MODBUS.Address    res   1     ; uniquely identifies this device on the bus
 MODBUS.State      res   1     ; current state of the state machine
 MODBUS.FrameError res   1     ; 0 = false, 255 = true
-MODBUS.Scratch    res   1     ; temporary work variable
+MODBUS.Scratch    res   2     ; temporary work variables
 
 MODBUS.MsgTail    res   2     ; points to next location to be read or written
 MODBUS.Checksum   res   2     ; LRC or CRC, depending on mode (ASCII or RTU)
@@ -264,7 +264,7 @@ MODBUS.storeFrameByte:
 ;;
 MODBUS.validateMsg:
    ; Verify the message is addressed to this device.
-   movf     kMsgBuffer, W     ; is this a broadcast message?
+   movf     kMsgBuffer, W     ; is this a broadcast message (0 == address)?
    bz       valChecksum       ; yes, validate the checksum
    cpfseq   MODBUS.Address    ; no, is it addressed to this specific device?
      retlw  0xff              ; no, discard frame  TODO: log event
@@ -276,15 +276,14 @@ valChecksum:
 
    ; Set a pointer to the last byte in the message buffer.
    LDADDR   MODBUS.MsgTail, FSR0L
-   movf     POSTDEC0
 
    ; Compare the checksum included in the message to the one we calculated.
-   movf     POSTDEC0, W       ; fetch the MSB
-   cpfseq   MODBUS.Checksum + 1; does it match the computed value?
+   movf     POSTINC0, W       ; fetch the LSB
+   cpfseq   MODBUS.Checksum   ; does it match the computed value?
      retlw  0xff              ; no, discard the frame  TODO: log event
 
-   movf     INDF0, W          ; yes, fetch the LSB
-   cpfseq   MODBUS.Checksum   ; does it match the computed value?
+   movf     INDF0, W          ; yes, fetch the MSB
+   cpfseq   MODBUS.Checksum + 1; does it match the computed value?
      retlw  0xff              ; no, discard the frame  TODO: log event
 
    retlw    0                 ; yes, success

@@ -125,50 +125,41 @@ DelayTable:
 
 
 ;; ----------------------------------------------
-;;  void RTU.crc( byte b )
+;;  void RTU.calcCRC()
 ;;
-;;  Updates a running CRC-16 checksum with the byte specified in W.  The value
-;;  of RTU.CRC will be updated (in little-endian format).  The generating
-;;  polynomial used by MODBUS is x^16 + x^15 + x^13 + x^0 (0xa001).  This
-;;  method expects the checksum to be initialized to 0xffff before first use.
+;;  Computes the CRC-16 checksum of the message buffer, storing the little-
+;;  endian result in MODBUS.Checksum.  The MODBUS generating polynomial is
+;;  x^16 + x^15 + x^13 + x^0 (0xa001).
+;;
+;;  This method expects MODBUS.MsgTail to point one past the last message
+;;  buffer byte to be included in the checksum.
 ;;
 RTU.calcCRC:
+   ; Compute the message length, which is limited to 256 bytes in RTU mode.  This
+   ; means we can ignore the high byte of the message tail pointer, even if it
+   ; crosses a page boundary.
+   movff    MODBUS.MsgTail, MODBUS.Scratch
+   movlw    LOW kMsgBuffer
+   subwf    MODBUS.Scratch    ; compute the 8-bit message length
+
    ; Initialize the checksum and a pointer to the message buffer.
    setf     MODBUS.Checksum   ; CRC starts at 0xffff
    setf     MODBUS.Checksum + 1
-   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (FSR1 = message tail)
-
-   ; Back up past the last two bytes received, since they're the checksum itself,
-   ; which we don't want to include in the calculation.
-   movf     POSTDEC1
-   movf     POSTDEC1
+   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head
 
 crcLoop:
-   ; Compare the head and tail pointers.
-   movf     FSR0L, W
-   cpfseq   FSR1L             ; are low bytes equal?
-     bra    crcUpdate         ; no, keep going
-
-   movf     FSR0H, W
-   cpfseq   FSR1H             ; are high bytes equal?
-     bra    crcUpdate         ; no, keep going
-
-   ; The head and tail pointers are equal, so we're done.
-   return
-
-crcUpdate:
    ; Update the checksum with the current byte.
    movf     POSTINC0, W       ; read the byte at head
    xorwf    MODBUS.Checksum   ; add it to the checksum's low byte
    movlw    0x08              ; prepare to loop through all bits
-   movwf    MODBUS.Scratch
+   movwf    MODBUS.Scratch + 1
 
 crcXOR:
    ; Shift the checksum one bit.
    bcf      STATUS, C         ; shift 0 into the MSB
    rrcf     MODBUS.Checksum + 1
    rrcf     MODBUS.Checksum   ; was the LSB set?
-   bnc      crcBit            ; no, process the next bit
+   bnc      crcNext           ; no, process the next bit
 
    ; The LSB was set, so apply the polynomial.
    movlw    0xa0
@@ -176,11 +167,15 @@ crcXOR:
    movlw    0x01
    xorwf    MODBUS.Checksum
 
-crcBit:
+crcNext:
    ; Repeat for every bit in the current byte.
-   decfsz   MODBUS.Scratch
+   decfsz   MODBUS.Scratch + 1
      bra    crcXOR
-   bra      crcLoop
+
+   ; Repeat for every byte in the message.
+   decfsz   MODBUS.Scratch
+     bra      crcLoop
+   return
 
 
 
@@ -355,11 +350,16 @@ timeoutWaiting:
    movf     MODBUS.FrameError ; was there an error during the frame?
    bnz      timeoutDone       ; yes, discard the frame (do nothing with it)
 
+   ; The last two message bytes hold the checksum computed by the sender (which we
+   ; don't want to include in our checksum calculation), so pull the tail in by 2.
+   movlw    0x2
+   subwf    MODBUS.MsgTail
+   movlw    0x0
+   subwfb   MODBUS.MsgTail + 1
+
    ; Compute the checksum of the message so it can be validated, along with the
    ; target address.
-   LDADDR   MODBUS.MsgTail, FSR1L
    rcall    RTU.calcCRC
-
    call     MODBUS.validateMsg
    tstfsz   WREG              ; was the validation successful?
      bra    timeoutDone       ; no, discard the frame

@@ -101,25 +101,23 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;;  2s-complemented.  It's an 8-bit value, so the upper byte of the checksum
 ;;  is set to be 0.
 ;;
+;;  This code expects MODBUS.MsgTail to point to one past the last character
+;;  to be included in the checksum.
+;;
 ASCII.calcLRC:
    ; Initialize the checksum and a pointer to the message buffer.
    clrf     MODBUS.Checksum   ; LRC starts at 0
    clrf     MODBUS.Checksum + 1
    lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (FSR1 = message tail)
 
-   ; Back up past the last two characters received, since they represent the
-   ; checksum itself, which we don't want to include in the calculation.
-   movf     POSTDEC1
-   movf     POSTDEC1
-
 lrcLoop:
    ; Compare the head and tail pointers.
    movf     FSR0L, W
-   cpfseq   FSR1L             ; are low bytes equal?
+   cpfseq   MODBUS.MsgTail    ; are low bytes equal?
      bra    lrcUpdate         ; no, keep going
 
    movf     FSR0H, W
-   cpfseq   FSR1H             ; are high bytes equal?
+   cpfseq   MODBUS.MsgTail + 1; are high bytes equal?
      bra    lrcUpdate         ; no, keep going
 
    ; The head and tail pointers are equal, so we're done.
@@ -255,10 +253,18 @@ rxWaiting:
    movf     MODBUS.FrameError ; was there an error during reception?
    bnz      rxDone            ; yes, discard the frame
 
+   ; Rewind the message tail to back up past the last two characters, since they
+   ; represent the checksum computed by the sender, which we don't want to include
+   ; in our checksum calculation.
+   LDADDR   MODBUS.MsgTail, FSR1L; save the old value for later
+   movlw    0x2
+   subwf    MODBUS.MsgTail
+   movlw    0x0
+   subwfb   MODBUS.MsgTail + 1
+
    ; Compute the checksum from the original characters, then convert the message
    ; to the equivalent binary (RTU) format.  Once that's done, we can use common
    ; code to validate the address, verify the checksum, and parse the contents.
-   LDADDR   MODBUS.MsgTail, FSR1L
    rcall    ASCII.calcLRC
    rcall    ASCII.xformRTU
 
@@ -318,11 +324,13 @@ timeoutUpdate:
 ;;  The main advantage, however, is being able to share common code to verify
 ;;  address, validate checksum, and parse ASCII and RTU messages.
 ;;
+;;  This method expects FSR1 to point one past the end of the message buffer,
+;;  including the last two checksum characters (which we want to convert as
+;;  much the message).
+;;
 ASCII.xformRTU:
    ; Initialize some pointers.
    lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (ASCII)
-   movf     POSTINC1
-   movf     POSTINC1          ; FSR1 = message tail (ASCII)
    lfsr     FSR2, kMsgBuffer  ; FSR2 = message tail (RTU)
 
 xformLoop:
@@ -338,7 +346,7 @@ xformLoop:
    ; The head and tail pointers are equal, so we're done.  The last thing we do is
    ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
    ; like a 16-bit little-endian word to mimic the CRC16 used in RTU mode.
-   clrf     POSTINC2
+   clrf     POSTDEC2
    LDADDR   FSR2L, MODBUS.MsgTail
    return
 
