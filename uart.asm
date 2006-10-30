@@ -15,15 +15,17 @@
 
 
 
-   #include "modbus.inc"
+   #include "private.inc"
 
-   extern   CONF.BaudRate
-   extern   CONF.Mode
+   ; Variables
+   extern   MODBUS.BaudRate
    extern   MODBUS.FrameError
+   extern   MODBUS.Mode
 
    global   UART.LastCharacter
    global   UART.LastParity
 
+   ; Methods
    extern   ASCII.rxCharacter
    extern   RTU.rxCharacter
 
@@ -57,7 +59,7 @@ UART.LastParity         res   1
 ;;
 UART.init:
    ; Specify the baud rate.
-   movff    CONF.BaudRate, SPBRG
+   movff    MODBUS.BaudRate, SPBRG
 
    ; Specify how data is transmitted.
    movlw    b'01100100'
@@ -86,7 +88,7 @@ UART.init:
    bsf      TRISC, RC7        ; RC7/RX/DT will be an input
 
    ; Test our 9-bit character assumption.
-   movf     CONF.Mode
+   movf     MODBUS.Mode
    bz       initInts          ; if correct, we're done
 
    bcf      TXSTA, TX9        ; otherwise, use 8-bit characters (7 data + 1 parity)
@@ -132,7 +134,7 @@ rxChar:
 
    ; Determine how to find the parity bit and which state machine to update.
    clrf     UART.LastParity   ; assume parity bit is clear
-   movf     CONF.Mode         ; are we in RTU transmission mode?
+   movf     MODBUS.Mode       ; are we in RTU transmission mode?
    bz       rxRTU             ; yes, process a binary character
 
    ; ASCII mode, so the parity bit comes from the MSB of the character.

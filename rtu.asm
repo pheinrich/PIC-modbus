@@ -15,9 +15,10 @@
 
 
 
-   include "modbus.inc"
+   include "private.inc"
 
-   extern   CONF.BaudRate
+   ; Variables
+   extern   MODBUS.BaudRate
    extern   MODBUS.Checksum
    extern   MODBUS.FrameError
    extern   MODBUS.MsgTail
@@ -25,6 +26,7 @@
    extern   MODBUS.State
    extern   UART.LastCharacter
 
+   ; Methods
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
    extern   MODBUS.queueMsg
@@ -174,7 +176,7 @@ crcNext:
 
    ; Repeat for every byte in the message.
    decfsz   MODBUS.Scratch
-     bra      crcLoop
+     bra    crcLoop
    return
 
 
@@ -195,7 +197,7 @@ RTU.init:
 
    ; Advance the table pointer if required for the requested baud rate.
    movlw    kBaud_19200
-   cpfslt   CONF.BaudRate     ; is baud rate more than 19200?
+   cpfslt   MODBUS.BaudRate   ; is baud rate more than 19200?
      bra    check9600         ; no, check lower rate
 
    ; The requested baud rate is greater than 19200, so advance the table index.
@@ -207,7 +209,7 @@ RTU.init:
 check9600:
    ; Advance the table pointer if required for the requested baud rate.
    movlw    kBaud_9600
-   cpfslt   CONF.BaudRate     ; is baud rate more than 9600?
+   cpfslt   MODBUS.BaudRate   ; is baud rate more than 9600?
      bra    copyDelays        ; no, leave the table index undchanged
 
    ; The requested baud rate is greater than 9600, so advance the table index.

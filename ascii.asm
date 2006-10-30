@@ -15,7 +15,7 @@
 
 
 
-   include "modbus.inc"
+   include "private.inc"
 
    extern   MODBUS.Checksum
    extern   MODBUS.FrameError

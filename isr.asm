@@ -15,27 +15,19 @@
 
 
 
-   #include "modbus.inc"
+   #include "private.inc"
 
-   extern   CONF.Mode
+   ; Variables
+   extern   MODBUS.Mode
 
+   ; Methods
    extern   ASCII.timeout
    extern   RTU.timeout
    extern   UART.rxCharacter
    extern   UART.txCharacter
 
-   global   ISR.high
+   global   ISR.modbus
    
-
-
-;; ---------------------------------------------------------------------------
-            udata_acs
-;; ---------------------------------------------------------------------------
-
-ISR.SaveFSR0      res   2
-ISR.SaveFSR1      res   2
-ISR.SaveFSR2      res   2
-
 
 
 ;; ---------------------------------------------------------------------------
@@ -43,14 +35,9 @@ ISR.SaveFSR2      res   2
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
-;;  void ISR.high()
+;;  void ISR.modbus()
 ;;
-ISR.high:
-   ; Save registers that may be overwritten during processing.
-   LDADDR   FSR0L, ISR.SaveFSR0
-   LDADDR   FSR1L, ISR.SaveFSR1
-   LDADDR   FSR2L, ISR.SaveFSR2
-
+ISR.modbus:
    ; Determine if the UART is responsible for this interrupt.
    btfss    PIE1, RCIE        ; are character reception interrupts enabled?
      bra    checkTx           ; no, check for transmitted characters
@@ -66,29 +53,15 @@ checkTx:
 checkTimer:
    ; Determine if our timer overflowed.
    btfss    PIE1, TMR1IE      ; are timer1 interrupts enabled?
-     bra    exit              ; no, we can exit
+     return                   ; no, we can exit
    btfss    PIR1, TMR1IF      ; yes, has timer1 expired?
-     bra    exit              ; no, we're done
+     return                   ; no, we're done
 
    ; A timer1 event did occur.
    bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
-   tstfsz   CONF.Mode         ; are we in RTU mode?
-     bra    asciiTimeout      ; no, the ASCII state machine takes over
-
-   call     RTU.timeout       ; yes, the RTU state machine takes over
-   bra      exit
-
-asciiTimeout:
-   call     ASCII.timeout
-
-exit:
-   ; Restore the registers we saved.
-   LDADDR   ISR.SaveFSR2, FSR2L
-   LDADDR   ISR.SaveFSR1, FSR1L
-   LDADDR   ISR.SaveFSR0, FSR0L
-   
-   retfie   FAST
-
+   tstfsz   MODBUS.Mode       ; are we in RTU mode?
+     goto   ASCII.timeout     ; no, the ASCII state machine takes over
+   goto     RTU.timeout       ; yes, the RTU state machine takes over
 
 
    end

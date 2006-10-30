@@ -15,7 +15,7 @@
 
 
 
-   #include "modbus.inc"
+   #include "private.inc"
 
    global   Diag.readExceptStatus
    global   Diag.returnQueryData

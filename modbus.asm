@@ -8,9 +8,6 @@
 ;;  $URL$
 ;;  $Revision$
 ;;
-;;  This file provides a test harness for the MODBUS routines implemented by
-;;  the other modules of this project.
-;;
 ;; ---------------------------------------------------------------------------
 ;;  $Author$
 ;;  $Date$
@@ -18,37 +15,31 @@
 
 
 
-   config   OSC=HS, OSCS=OFF, PWRT=OFF, BOR=OFF, WDT=OFF, CCP2MUX=ON, STVR=ON
-   config   LVP=OFF, DEBUG=OFF
-   config   CP0=OFF, CP1=OFF, CPB=OFF, CPD=OFF
-   config   WRT0=OFF, WRT1=OFF, WRTB=OFF, WRTD=OFF
-   config   EBTR0=OFF, EBTR1=OFF, EBTRB=OFF
+   #include "private.inc"
 
-   #include "modbus.inc"
-
-   extern   CONF.Mode
-   extern   CONF.NoChecksum
-   extern   CONF.ParityCheck
+   ; Variables
    extern   UART.LastCharacter
    extern   UART.LastParity
 
    global   MODBUS.Address
+   global   MODBUS.BaudRate
    global   MODBUS.Checksum
    global   MODBUS.FrameError
+   global   MODBUS.Mode
    global   MODBUS.MsgTail
+   global   MODBUS.NoChecksum
+   global   MODBUS.ParityCheck
    global   MODBUS.Scratch
    global   MODBUS.State
 
+   ; Methods
    extern   ASCII.init
-   extern   DEVICEID.getAddress
-   extern   ISR.high
-   extern   main
-   extern   CONF.init
    extern   RTU.init
    extern   UART.init
 
    global   MODBUS.calcParity
    global   MODBUS.checkParity
+   global   MODBUS.init
    global   MODBUS.queueMsg
    global   MODBUS.resetFrame
    global   MODBUS.storeFrameByte
@@ -57,35 +48,20 @@
 
 
 ;; ---------------------------------------------------------------------------
-.isvReset   code     0x0000
-;; ---------------------------------------------------------------------------
-
-   ; Disable all interrupts and jump to relocatable initialization code.
-   clrf     INTCON
-   goto     MODBUS.init
-
-
-
-;; ---------------------------------------------------------------------------
-.isvHigh    code     0x0008
-;; ---------------------------------------------------------------------------
-
-   ; Jump to high-priority interrupt service routine in relocatable code block.
-   goto     ISR.high
-
-
-
-;; ---------------------------------------------------------------------------
             udata_acs
 ;; ---------------------------------------------------------------------------
 
-MODBUS.Address    res   1     ; uniquely identifies this device on the bus
-MODBUS.State      res   1     ; current state of the state machine
-MODBUS.FrameError res   1     ; 0 = false, 255 = true
-MODBUS.Scratch    res   2     ; temporary work variables
+MODBUS.Address       res   1  ; uniquely identifies this device on the bus
+MODBUS.BaudRate      res   1  ; kBaud_9600, kBaud_19200 (default), etc.
+MODBUS.FrameError    res   1  ; 0 = false, 255 = true
+MODBUS.Mode          res   1  ; kMode_ASCII or kMode_RTU (default)
+MODBUS.NoChecksum    res   1  ; 0 = false (default), 255 = true
+MODBUS.ParityCheck   res   1  ; kParity_Even (default), kParity_Off, kParity_None
+MODBUS.State         res   1  ; current state of the state machine
 
-MODBUS.MsgTail    res   2     ; points to next location to be read or written
-MODBUS.Checksum   res   2     ; LRC or CRC, depending on mode (ASCII or RTU)
+MODBUS.MsgTail       res   2  ; points to next location to be read or written
+MODBUS.Checksum      res   2  ; LRC or CRC, depending on mode (ASCII or RTU)
+MODBUS.Scratch       res   2  ; temporary work variables
 
 
 
@@ -136,7 +112,7 @@ MODBUS.calcParity:
 MODBUS.checkParity:
    ; If configured for No Parity, don't do any checks.
    movlw    kParity_None
-   cpfslt   CONF.ParityCheck
+   cpfslt   MODBUS.ParityCheck
      return
 
    ; Compute the even parity of the character received.
@@ -149,7 +125,7 @@ MODBUS.checkParity:
 
    ; If configured for Odd Parity, we complement the result.
    movlw    kParity_Odd
-   cpfslt   CONF.ParityCheck
+   cpfslt   MODBUS.ParityCheck
      incf   MODBUS.Scratch
 
    ; If the final result is not 0, the parity does not match.
@@ -167,34 +143,12 @@ MODBUS.checkParity:
 ;;
 MODBUS.init:
    ; Some components of the system must be initialized.
-   call     CONF.init         ; read configuration jumpers/switches
    call     UART.init         ; set UART mode, baud rate, etc.
 
    ; Initialize the correct mode according to the configuration.
-   tstfsz   CONF.Mode         ; are we in RTU mode?
-     bra    asciiInit         ; no, initialize ASCII mode
-
-   call     RTU.init          ; calculate intercharacter/frame timeouts
-   bra      clearInts
-
-asciiInit:
-   call     ASCII.init        ; set default delimiter
-
-clearInts:
-   ; Clear all pending peripheral interrupt flags.
-   clrf     PIR1
-   clrf     PIR2
-
-   ; Re-enable interrupts.
-   bsf      INTCON, PEIE      ; enable all peripheral interrupts
-   bsf      INTCON, GIE       ; enable all unmasked interrupts
-
-   ; Shadow copy our address on the bus.
-   call     DEVICEID.getAddress
-   movwf    MODBUS.Address
-
-   ; Enter the main event loop.
-   goto     main
+   tstfsz   MODBUS.Mode       ; are we in RTU mode?
+     goto   ASCII.init        ; no, initialize ASCII mode
+   goto     RTU.init          ; yes, initialize RTU mode
 
 
 
@@ -215,6 +169,9 @@ MODBUS.queueMsg:
 
 ;; ----------------------------------------------
 ;;  woid MODBUS.replyMsg()
+;;
+;;  Attempts to send the message in the message buffer, which is a always in
+;;  reply to a message we previously received.
 ;;
 MODBUS.replyMsg:
    return
@@ -252,9 +209,6 @@ MODBUS.storeFrameByte:
    movff    FSR1L, MODBUS.MsgTail
    movff    FSR1H, MODBUS.MsgTail + 1
 
-;<debug>
-   movwf    TXREG
-;</debug>
    return
 
 
@@ -271,7 +225,7 @@ MODBUS.validateMsg:
 
 valChecksum:
    ; If checksum validation is turned off, we're done.
-   tstfsz   CONF.NoChecksum
+   tstfsz   MODBUS.NoChecksum
      retlw  0
 
    ; Set a pointer to the last byte in the message buffer.

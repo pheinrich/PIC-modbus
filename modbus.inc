@@ -15,14 +15,6 @@
 
 
 
-   processor 18f242
-   radix dec
-   list b=3
-
-   #include <p18f242.inc>
-
-
-
 ; Everyone should agree on the CPU clock speed.
 kFrequency  equ   20000000    ; 20 MHz
 
