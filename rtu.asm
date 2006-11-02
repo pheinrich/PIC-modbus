@@ -27,9 +27,9 @@
    extern   UART.LastCharacter
 
    ; Methods
+   extern   DIAG.logRxEvt
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
-   extern   MODBUS.queueMsg
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
    extern   MODBUS.validateMsg
@@ -314,7 +314,7 @@ RTU.timeout:
 
    ; Initial State:  a timeout here indicates a full frame timeout period has
    ; elapsed.  It's now safe to enter the idle state.
-   bra      timeoutDone
+   bra      timeoutIdle
 
 timeoutEmission:
    ; Check for the next state concerned with timeouts.
@@ -324,7 +324,7 @@ timeoutEmission:
 
    ; Emission State:  a timeout here indicates our emission has been set off by a
    ; full frame timeout period.  We're idle again.
-   bra      timeoutDone
+   bra      timeoutIdle
 
 timeoutReception:
    ; Check for the next state concerned with timeouts.
@@ -347,13 +347,9 @@ timeoutWaiting:
      return                   ; no, we can exit
 
    ; Control-Wait State:  a timeout here means a full frame timeout period has
-   ; elapsed since the last character was received.  Verify we didn't detect any
-   ; overflow or parity errors.
-   movf     MODBUS.FrameError ; was there an error during the frame?
-   bnz      timeoutDone       ; yes, discard the frame (do nothing with it)
-
-   ; The last two message bytes hold the checksum computed by the sender (which we
-   ; don't want to include in our checksum calculation), so pull the tail in by 2.
+   ; elapsed since the last character was received.  The last two message bytes
+   ; hold the checksum computed by the sender (which we don't want to include in
+   ; our checksum calculation), so pull the tail in by 2.
    movlw    0x2
    subwf    MODBUS.MsgTail
    movlw    0x0
@@ -367,13 +363,16 @@ timeoutWaiting:
      bra    timeoutDone       ; no, discard the frame
 
    ; No reception errors, no checksum errors, and the message is addressed to us.
-   movlw    kState_MsgQueued
+   movlw    kState_MsgQueued  ; alert the main event loop that a message has arrived
    movwf    MODBUS.State
-   goto     MODBUS.queueMsg   ; let the main event loop process the message
+   goto     DIAG.logRxEvt     ; log the receive event in the event log
 
 timeoutDone:
+   call     DIAG.logRxEvt     ; log the receive event in the event log
+
+timeoutIdle:
    ; Become idle, since we know a full frame timeout period has elapsed.
-   movlw    kState_Idle       ; enter idle state
+   movlw    kState_Idle       ; be ready to receive the next message
    movwf    MODBUS.State
    bcf      PIE1, TMR1IE      ; disable timer1 interrupts
 

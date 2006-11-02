@@ -18,7 +18,8 @@
 ; Everyone should agree on the CPU clock speed.
 kFrequency  equ   20000000    ; 20 MHz
 
-; Base pointer to beginning of message buffer.
+; Base pointers to special buffers.
+kLogBuffer  equ   0x0040
 kMsgBuffer  equ   0x0080
 
 ; Enumerate the baud rates we support.  Trick: each value is a valid Baud Rate
@@ -46,6 +47,22 @@ kState_EmitEnd    equ   4
 kState_Reception  equ   5
 kState_Waiting    equ   6
 kState_MsgQueued  equ   7
+
+kRxEvt_CommErr    equ   1
+kRxEvt_Overrun    equ   4
+kRxEvt_ListenOnly equ   5
+kRxEvt_Broadcast  equ   6
+
+kTxEvt_ReadEx     equ   0
+kTxEvt_AbortEx    equ   1
+kTxEvt_BusyEx     equ   2
+kTxEvt_NAKEx      equ   3
+kTxEvt_Timeout    equ   4
+kTxEvt_ListenOnly equ   5
+
+kDiag_RetQuery    equ   7
+kDiag_ListenOnly  equ   6
+kDiag_Busy        equ   5
 
 
 

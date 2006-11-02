@@ -18,11 +18,13 @@
    #include "private.inc"
 
    ; Variables
+   extern   DIAG.Options
    extern   UART.LastCharacter
    extern   UART.LastParity
 
    global   MODBUS.Address
    global   MODBUS.BaudRate
+   global   MODBUS.Event
    global   MODBUS.Checksum
    global   MODBUS.FrameError
    global   MODBUS.Mode
@@ -34,13 +36,14 @@
 
    ; Methods
    extern   ASCII.init
+   extern   DIAG.init
    extern   RTU.init
    extern   UART.init
 
    global   MODBUS.calcParity
    global   MODBUS.checkParity
    global   MODBUS.init
-   global   MODBUS.queueMsg
+   global   MODBUS.replyMsg
    global   MODBUS.resetFrame
    global   MODBUS.storeFrameByte
    global   MODBUS.validateMsg
@@ -53,6 +56,7 @@
 
 MODBUS.Address       res   1  ; uniquely identifies this device on the bus
 MODBUS.BaudRate      res   1  ; kBaud_9600, kBaud_19200 (default), etc.
+MODBUS.Event         res   1  ; kRxEvt_CommErr, kRxEvt_Broadcast, kTxEvt_Abort, etc.
 MODBUS.FrameError    res   1  ; 0 = false, 255 = true
 MODBUS.Mode          res   1  ; kMode_ASCII or kMode_RTU (default)
 MODBUS.NoChecksum    res   1  ; 0 = false (default), 255 = true
@@ -143,27 +147,13 @@ MODBUS.checkParity:
 ;;
 MODBUS.init:
    ; Some components of the system must be initialized.
+   call     DIAG.init         ; reset diagnostic registers and event log
    call     UART.init         ; set UART mode, baud rate, etc.
 
    ; Initialize the correct mode according to the configuration.
    tstfsz   MODBUS.Mode       ; are we in RTU mode?
      goto   ASCII.init        ; no, initialize ASCII mode
    goto     RTU.init          ; yes, initialize RTU mode
-
-
-
-;; ----------------------------------------------
-;;  woid MODBUS.queueMsg()
-;;
-;;  Raises a flag to the main event loop to indicate that a MODBUS message has
-;;  been received and parity, checksum, and target address have been verified.
-;;  It's up to that code to actually process the message contents.
-;;
-;;  The active state machine will remain in kState_MsgQueued for the duration;
-;;  MODBUS.replyMsg() must be called explicitly when processing is complete.
-;;
-MODBUS.queueMsg:
-   return
 
 
 
@@ -188,8 +178,13 @@ MODBUS.resetFrame:
    movlw    HIGH kMsgBuffer
    movwf    MODBUS.MsgTail + 1
 
-   ; Reset the frame error indicator, since we're starting from scratch.
+   ; Reset the frame error and event mask, since we're starting from scratch.
    clrf     MODBUS.FrameError
+   clrf     MODBUS.Event
+
+   ; If we're in listen-only mode, that will be recorded in the event log.
+   btfsc    DIAG.Options, kDiag_ListenOnly
+     bsf    MODBUS.Event, kRxEvt_ListenOnly
    return
 
 
@@ -218,10 +213,13 @@ MODBUS.storeFrameByte:
 ;;
 MODBUS.validateMsg:
    ; Verify the message is addressed to this device.
+   bsf      MODBUS.Event, kRxEvt_Broadcast ; assume broadcast message
    movf     kMsgBuffer, W     ; is this a broadcast message (0 == address)?
    bz       valChecksum       ; yes, validate the checksum
-   cpfseq   MODBUS.Address    ; no, is it addressed to this specific device?
-     retlw  0xff              ; no, discard frame  TODO: log event
+
+   bcf      MODBUS.Event, kRxEvt_Broadcast ; no, clear our assumption
+   cpfseq   MODBUS.Address    ; is it addressed to this specific device?
+     retlw  0xff              ; no, discard frame
 
 valChecksum:
    ; If checksum validation is turned off, we're done.
@@ -230,6 +228,7 @@ valChecksum:
 
    ; Set a pointer to the last byte in the message buffer.
    LDADDR   MODBUS.MsgTail, FSR0L
+   bsf      MODBUS.Event, kRxEvt_CommErr ; assume checksum fails
 
    ; Compare the checksum included in the message to the one we calculated.
    movf     POSTINC0, W       ; fetch the LSB
@@ -240,7 +239,9 @@ valChecksum:
    cpfseq   MODBUS.Checksum + 1; does it match the computed value?
      retlw  0xff              ; no, discard the frame  TODO: log event
 
-   retlw    0                 ; yes, success
+   ; Success, so clear our earlier assumption about a bad checksum.
+   bcf      MODBUS.Event, kRxEvt_CommErr
+   retlw    0
 
 
 

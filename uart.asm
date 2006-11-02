@@ -19,6 +19,7 @@
 
    ; Variables
    extern   MODBUS.BaudRate
+   extern   MODBUS.Event
    extern   MODBUS.FrameError
    extern   MODBUS.Mode
 
@@ -124,9 +125,10 @@ UART.rxCharacter:
 
    ; There was an error, which we must clear and record.  Afterward, we continue
    ; processing the byte as normal.
-   bcf      RCSTA, CREN
+   bcf      RCSTA, CREN       ; swizzle the bit to clear the error
    bsf      RCSTA, CREN
-   setf     MODBUS.FrameError
+   bsf      MODBUS.Event, kRxEvt_Overrun
+   setf     MODBUS.FrameError ; note to self: discard the frame later
 
 rxChar:
    ; Read the character to clear the interrupt flag.

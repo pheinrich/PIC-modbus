@@ -35,10 +35,10 @@ file_015=yes
 [FILE_INFO]
 file_000=isr.asm
 file_001=uart.asm
-file_002=diagnostics.asm
-file_003=rtu.asm
-file_004=ascii.asm
-file_005=modbus.asm
+file_002=rtu.asm
+file_003=ascii.asm
+file_004=modbus.asm
+file_005=diag.asm
 file_006=modbus.inc
 file_007=private.inc
 file_008=C:\Program Files\Microchip\MPASM Suite\LKR\18f242.lkr

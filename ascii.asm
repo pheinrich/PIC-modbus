@@ -17,6 +17,7 @@
 
    include "private.inc"
 
+   ; Variables
    extern   MODBUS.Checksum
    extern   MODBUS.FrameError
    extern   MODBUS.MsgTail
@@ -26,9 +27,10 @@
 
    global   ASCII.Delimiter
 
+   ; Methods
+   extern   DIAG.logRxEvt
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
-   extern   MODBUS.queueMsg
    extern   MODBUS.resetFrame
    extern   MODBUS.storeFrameByte
    extern   MODBUS.validateMsg
@@ -247,17 +249,13 @@ rxWaiting:
    cpfseq   UART.LastCharacter; was a linefeed (or alternative delimiter) received?
      return                   ; no, keep waiting
 
-   ; A frame delimiter was received, so verify we didn't detect any overflow or
-   ; parity errors.
+   ; A frame delimiter was received.  Rewind the message tail to back up past the
+   ; last two characters, since they represent the checksum computed by the send-
+   ; er, which we don't want to include in our checksum calculation.
    bcf      PIE1, TMR1IE      ; disable timer1 interrupts
-   movf     MODBUS.FrameError ; was there an error during reception?
-   bnz      rxDone            ; yes, discard the frame
-
-   ; Rewind the message tail to back up past the last two characters, since they
-   ; represent the checksum computed by the sender, which we don't want to include
-   ; in our checksum calculation.
    LDADDR   MODBUS.MsgTail, FSR1L; save the old value for later
-   movlw    0x2
+
+   movlw    0x2               ; rewind 2 characters
    subwf    MODBUS.MsgTail
    movlw    0x0
    subwfb   MODBUS.MsgTail + 1
@@ -273,14 +271,16 @@ rxWaiting:
      bra    rxDone            ; no, discard the frame
 
    ; No reception errors, no checksum errors, and the message is addressed to us.
-   movlw    kState_MsgQueued
+   movlw    kState_MsgQueued  ; alert the main event loop that a message has arrived
    movwf    MODBUS.State
-   goto     MODBUS.queueMsg   ; let the main event loop process the message
+   goto     DIAG.logRxEvt     ; log the receive event in the event log
 
 rxDone:
-   ; Become idle.
-   movlw    kState_Idle       ; enter idle state
+   ; There was a communication error (parity, overrun, checksum) or the message
+   ; simply wasn't addressed to us.
+   movlw    kState_Idle       ; be ready to receive the next message
    movwf    MODBUS.State
+   goto     DIAG.logRxEvt     ; log the receive event in the event log
    return
 
    
