@@ -63,8 +63,8 @@ MODBUS.NoChecksum    res   1  ; 0 = false (default), 255 = true
 MODBUS.ParityCheck   res   1  ; kParity_Even (default), kParity_Off, kParity_None
 MODBUS.State         res   1  ; current state of the state machine
 
-MODBUS.MsgTail       res   2  ; points to next location to be read or written
 MODBUS.Checksum      res   2  ; LRC or CRC, depending on mode (ASCII or RTU)
+MODBUS.MsgTail       res   2  ; points to next location to be read or written
 MODBUS.Scratch       res   2  ; temporary work variables
 
 
@@ -164,6 +164,8 @@ MODBUS.init:
 ;;  reply to a message we previously received.
 ;;
 MODBUS.replyMsg:
+   movlw    kState_Idle       ; debug
+   movwf    MODBUS.State      ; debug
    return
 
 
@@ -181,10 +183,6 @@ MODBUS.resetFrame:
    ; Reset the frame error and event mask, since we're starting from scratch.
    clrf     MODBUS.FrameError
    clrf     MODBUS.Event
-
-   ; If we're in listen-only mode, that will be recorded in the event log.
-   btfsc    DIAG.Options, kDiag_ListenOnly
-     bsf    MODBUS.Event, kRxEvt_ListenOnly
    return
 
 
@@ -193,17 +191,12 @@ MODBUS.resetFrame:
 ;;  woid MODBUS.storeFrameByte( byte value )
 ;;
 MODBUS.storeFrameByte:
-   ; Get a pointer to the next buffer location to write.
-   movff    MODBUS.MsgTail, FSR1L
-   movff    MODBUS.MsgTail + 1, FSR1H
-
-   ; Write the byte indirectly.
+   ; Store the byte at the next message buffer location.  A tail pointer keeps
+   ; track of where it goes, so we fetch it first, then update its value with the
+   ; new tail location when we're finished.
+   LDADDR   MODBUS.MsgTail, FSR1L
    movwf    POSTINC1
-
-   ; Save the new tail pointer for next time.
-   movff    FSR1L, MODBUS.MsgTail
-   movff    FSR1H, MODBUS.MsgTail + 1
-
+   LDADDR   FSR1L, MODBUS.MsgTail
    return
 
 
@@ -222,6 +215,9 @@ MODBUS.validateMsg:
      retlw  0xff              ; no, discard frame
 
 valChecksum:
+   ; This message is addressed to us.
+   bsf      MODBUS.Event, kRxEvt_SlaveMsg
+
    ; If checksum validation is turned off, we're done.
    tstfsz   MODBUS.NoChecksum
      retlw  0

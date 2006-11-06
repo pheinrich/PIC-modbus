@@ -20,6 +20,7 @@
    ; Variables
    extern   MODBUS.Checksum
    extern   MODBUS.FrameError
+   extern   MODBUS.Event
    extern   MODBUS.MsgTail
    extern   MODBUS.Scratch
    extern   MODBUS.State
@@ -280,8 +281,8 @@ rxDone:
    ; simply wasn't addressed to us.
    movlw    kState_Idle       ; be ready to receive the next message
    movwf    MODBUS.State
+   bsf      MODBUS.Event, kRxEvt_NoResponse
    goto     DIAG.logRxEvt     ; log the receive event in the event log
-   return
 
    
 

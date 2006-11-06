@@ -20,6 +20,7 @@
    ; Variables
    extern   MODBUS.BaudRate
    extern   MODBUS.Checksum
+   extern   MODBUS.Event
    extern   MODBUS.FrameError
    extern   MODBUS.MsgTail
    extern   MODBUS.Scratch
@@ -368,6 +369,7 @@ timeoutWaiting:
    goto     DIAG.logRxEvt     ; log the receive event in the event log
 
 timeoutDone:
+   bsf      MODBUS.Event, kRxEvt_NoResponse
    call     DIAG.logRxEvt     ; log the receive event in the event log
 
 timeoutIdle:

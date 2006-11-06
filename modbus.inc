@@ -20,7 +20,9 @@ kFrequency  equ   20000000    ; 20 MHz
 
 ; Base pointers to special buffers.
 kLogBuffer  equ   0x0040
-kMsgBuffer  equ   0x0080
+kLogMaxLen  equ   0x0040
+kMsgBuffer  equ   kLogBuffer + kLogMaxLen
+kMsgMaxLen  equ   0x0201
 
 ; Enumerate the baud rates we support.  Trick: each value is a valid Baud Rate
 ; Generator (BRG) for the clock speed, above.
@@ -39,30 +41,34 @@ kMode_RTU   equ   0           ; 8-bit character + start/stop/parity = 11 bits to
 kMode_ASCII equ   1           ; 7-bit character + start/stop/parity = 10 bits total
 
 ; State machine constants.
-kState_Init       equ   0
-kState_Idle       equ   1
-kState_EmitStart  equ   2
-kState_Emission   equ   3
-kState_EmitEnd    equ   4
-kState_Reception  equ   5
-kState_Waiting    equ   6
-kState_MsgQueued  equ   7
+kState_Init          equ   0
+kState_Idle          equ   1
+kState_EmitStart     equ   2
+kState_Emission      equ   3
+kState_EmitEnd       equ   4
+kState_Reception     equ   5
+kState_Waiting       equ   6
+kState_MsgQueued     equ   7
 
-kRxEvt_CommErr    equ   1
-kRxEvt_Overrun    equ   4
-kRxEvt_ListenOnly equ   5
-kRxEvt_Broadcast  equ   6
+; Bit fields for receive events in the event log.
+kRxEvt_CommErr       equ   1
+kRxEvt_SlaveMsg      equ   2  ; extended field
+kRxEvt_NoResponse    equ   3  ; extended field
+kRxEvt_Overrun       equ   4
+kRxEvt_ListenOnly    equ   5
+kRxEvt_Broadcast     equ   6
 
-kTxEvt_ReadEx     equ   0
-kTxEvt_AbortEx    equ   1
-kTxEvt_BusyEx     equ   2
-kTxEvt_NAKEx      equ   3
-kTxEvt_Timeout    equ   4
-kTxEvt_ListenOnly equ   5
+; Bit fields for transmit events in the event log.
+kTxEvt_ReadEx        equ   0
+kTxEvt_AbortEx       equ   1
+kTxEvt_BusyEx        equ   2
+kTxEvt_NAKEx         equ   3
+kTxEvt_Timeout       equ   4
+kTxEvt_ListenOnly    equ   5
 
-kDiag_RetQuery    equ   7
-kDiag_ListenOnly  equ   6
-kDiag_Busy        equ   5
+; Dedicated event types in the event log.
+kCmdEvt_ListenOnly   equ   0x04
+kCmdEvt_Restart      equ   0x00
 
 
 
@@ -76,4 +82,18 @@ kDiag_Busy        equ   5
 LDADDR      macro from, to
    movff    from, to
    movff    from + 1, to + 1
+   endm
+
+
+
+;; ----------------------------------------------
+;;  Macro INCREG register
+;;
+;;  This macro increments the register argument by 1, assuming it refers to a
+;;  16-bit little-endian word composed of two file registers in the access
+;;  bank.
+;;
+INCREG      macro register
+   infsnz   register
+     incf   register + 1
    endm
