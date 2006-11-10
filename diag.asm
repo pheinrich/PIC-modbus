@@ -133,6 +133,7 @@ rxSlave:
    btfss    MODBUS.Event, kRxEvt_SlaveMsg
      bra    rxNoResponse
    INCREG   DIAG.NumSlaveMsgs
+   bcf      MODBUS.Event, kRxEvt_SlaveMsg
 
 rxNoResponse:
    ; Count the messages for which this device returned no response, either normal
@@ -140,6 +141,7 @@ rxNoResponse:
    btfss    MODBUS.Event, kRxEvt_NoResponse
      bra    rxOverrun
    INCREG   DIAG.NumNoResponse
+   bcf      MODBUS.Event, kRxEvt_NoResponse
 
 rxOverrun:
    ; Count buffer overruns.  This will also include framing errors.
