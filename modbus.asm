@@ -64,6 +64,7 @@ MODBUS.ParityCheck   res   1  ; kParity_Even (default), kParity_Off, kParity_Non
 MODBUS.State         res   1  ; current state of the state machine
 
 MODBUS.Checksum      res   2  ; LRC or CRC, depending on mode (ASCII or RTU)
+MODBUS.MsgHead       res   2  ; points to the first byte in the message
 MODBUS.MsgTail       res   2  ; points to next location to be read or written
 MODBUS.Scratch       res   2  ; temporary work variables
 
@@ -171,13 +172,19 @@ MODBUS.replyMsg:
 
 
 ;; ----------------------------------------------
-;;  woid MODBUS.resetFrame()
+;;  woid MODBUS.resetFrame( char* buffer )
+;;
+;;  Initializes the message frame for fresh reception or transmission.  This
+;;  method stashes the base pointer for later use by related routines.
 ;;
 MODBUS.resetFrame:
    ; Reset the pointer to the beginning of the buffer.
-   movlw    LOW kMsgBuffer
+   movf     FSR0L, W
+   movwf    MODBUS.MsgHead
    movwf    MODBUS.MsgTail
-   movlw    HIGH kMsgBuffer
+
+   movf     FSR0H, W
+   movwf    MODBUS.MsgHead + 1
    movwf    MODBUS.MsgTail + 1
 
    ; Reset the frame error and event mask, since we're starting from scratch.
@@ -207,7 +214,7 @@ MODBUS.storeFrameByte:
 MODBUS.validateMsg:
    ; Verify the message is addressed to this device.
    bsf      MODBUS.Event, kRxEvt_Broadcast ; assume broadcast message
-   movf     kMsgBuffer, W     ; is this a broadcast message (0 == address)?
+   movf     kRxBuffer, W      ; is this a broadcast message (0 == address)?
    bz       valChecksum       ; yes, validate the checksum
 
    bcf      MODBUS.Event, kRxEvt_Broadcast ; no, clear our assumption

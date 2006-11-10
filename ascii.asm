@@ -42,6 +42,14 @@
 
 
 
+; ASCII mode requires special buffer handling, since we don't have enough
+; memory for two independent buffers.  However, since we convert ASCII
+; messages into RTU mode for processing anyway, we don't actually need sep-
+; arate buffers.  We do a reverse conversion just before transmission, back
+; into the receive buffer.
+kASCIIBuffer      equ   kRxBuffer
+kASCIIBufLen      equ   0x201
+
 ; Count of timer1 overflows in 1 second (~77 @ 20 MHz).
 kOneSecond        equ   1 + (kFrequency / (4 * 65536))
 
@@ -96,7 +104,7 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
-;;  void ASCII.calcLRC()
+;;  void ASCII.calcLRC( const char* buffer )
 ;;
 ;;  Calculates the Longitudinal Redundancy Checksum on the ASCII characters in
 ;;  the message buffer, not including the checksum at the end (inserted by the
@@ -111,7 +119,6 @@ ASCII.calcLRC:
    ; Initialize the checksum and a pointer to the message buffer.
    clrf     MODBUS.Checksum   ; LRC starts at 0
    clrf     MODBUS.Checksum + 1
-   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (FSR1 = message tail)
 
 lrcLoop:
    ; Compare the head and tail pointers.
@@ -198,6 +205,7 @@ rxReceive:
    movwf    MODBUS.State
 
 rxReset:
+   lfsr     FSR0, kASCIIBuffer
    call     MODBUS.resetFrame
 
 rxTimer:
@@ -264,6 +272,7 @@ rxWaiting:
    ; Compute the checksum from the original characters, then convert the message
    ; to the equivalent binary (RTU) format.  Once that's done, we can use common
    ; code to validate the address, verify the checksum, and parse the contents.
+   lfsr     FSR0, kASCIIBuffer; FSR0 = message head
    rcall    ASCII.calcLRC
    rcall    ASCII.xformRTU
 
@@ -331,8 +340,8 @@ timeoutUpdate:
 ;;
 ASCII.xformRTU:
    ; Initialize some pointers.
-   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head (ASCII)
-   lfsr     FSR2, kMsgBuffer  ; FSR2 = message tail (RTU)
+   lfsr     FSR0, kASCIIBuffer; FSR0 = message head (ASCII)
+   lfsr     FSR2, kRxBuffer   ; FSR2 = message tail (RTU)
 
 xformLoop:
    ; Compare the head and tail pointers.

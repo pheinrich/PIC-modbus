@@ -20,9 +20,13 @@ kFrequency  equ   20000000    ; 20 MHz
 
 ; Base pointers to special buffers.
 kLogBuffer  equ   0x0040
-kLogMaxLen  equ   0x0040
-kMsgBuffer  equ   kLogBuffer + kLogMaxLen
-kMsgMaxLen  equ   0x0201
+kLogBufLen  equ   0x0040
+
+kRxBuffer   equ   kLogBuffer + kLogBufLen
+kRxBufLen   equ   0x100
+
+kTxBuffer   equ   kRxBuffer + kRxBufLen
+kTxBufLen   equ   kRxBufLen
 
 ; Enumerate the baud rates we support.  Trick: each value is a valid Baud Rate
 ; Generator (BRG) for the clock speed, above.

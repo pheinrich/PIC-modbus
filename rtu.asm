@@ -128,11 +128,13 @@ DelayTable:
 
 
 ;; ----------------------------------------------
-;;  void RTU.calcCRC()
+;;  void RTU.calcCRC( const byte* buffer )
 ;;
-;;  Computes the CRC-16 checksum of the message buffer, storing the little-
-;;  endian result in MODBUS.Checksum.  The MODBUS generating polynomial is
-;;  x^16 + x^15 + x^13 + x^0 (0xa001).
+;;  Computes the CRC-16 checksum of the buffer, storing the little-endian
+;;  result in MODBUS.Checksum.  The MODBUS generating polynomial is 0xa001,
+;;  equivalent to:
+;;
+;;    x^16 + x^15 + x^13 + x^0
 ;;
 ;;  This method expects MODBUS.MsgTail to point one past the last message
 ;;  buffer byte to be included in the checksum.
@@ -142,13 +144,12 @@ RTU.calcCRC:
    ; means we can ignore the high byte of the message tail pointer, even if it
    ; crosses a page boundary.
    movff    MODBUS.MsgTail, MODBUS.Scratch
-   movlw    LOW kMsgBuffer
+   movf     FSR0L, W
    subwf    MODBUS.Scratch    ; compute the 8-bit message length
 
    ; Initialize the checksum and a pointer to the message buffer.
    setf     MODBUS.Checksum   ; CRC starts at 0xffff
    setf     MODBUS.Checksum + 1
-   lfsr     FSR0, kMsgBuffer  ; FSR0 = message head
 
 crcLoop:
    ; Update the checksum with the current byte.
@@ -267,6 +268,8 @@ rxIdle:
    ; so begin reception.
    movlw    kState_Reception  ; switch to reception state
    movwf    MODBUS.State
+
+   lfsr     FSR0, kRxBuffer
    call     MODBUS.resetFrame
    bra      rxStash           ; start buffering frame characters
 
@@ -358,6 +361,7 @@ timeoutWaiting:
 
    ; Compute the checksum of the message so it can be validated, along with the
    ; target address.
+   lfsr     FSR0, kRxBuffer   ; FSR0 = message head
    rcall    RTU.calcCRC
    call     MODBUS.validateMsg
    tstfsz   WREG              ; was the validation successful?

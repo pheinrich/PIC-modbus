@@ -227,7 +227,7 @@ DIAG.storeLogByte:
    ; Increment the tail pointer, making sure it never exceeds the maximum buffer
    ; length of 64.
    incf     DIAG.LogTail      ; add 1 to the tail pointer
-   movlw    kLogMaxLen
+   movlw    kLogBufLen
    cpfslt   DIAG.LogTail      ; is the new tail >= max buffer length?
      clrf   DIAG.LogTail      ; yes, reset to 0
 
@@ -237,7 +237,7 @@ DIAG.storeLogByte:
      return                   ; no, we're done
 
    incf     DIAG.LogHead      ; yes, add 1 to the head pointer, too
-   movlw    kLogMaxLen
+   movlw    kLogBufLen
    cpfslt   DIAG.LogHead      ; is the new head >= max buffer length?
      clrf   DIAG.LogHead      ; yes, reset to 0
 
