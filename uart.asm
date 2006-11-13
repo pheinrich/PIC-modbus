@@ -28,7 +28,9 @@
 
    ; Methods
    extern   ASCII.rxCharacter
-   extern   RTU.rxCharacter
+   extern   ASCII.txCharacter
+   extern   RTU.rxByte
+   extern   RTU.txByte
 
    global   UART.init
    global   UART.rxCharacter
@@ -149,7 +151,7 @@ rxRTU:
    ; RTU mode, so the parity bit comes from the reception status register.
    btfsc    RCSTA, RX9D
      setf   UART.LastParity   ; copy the status bit as parity value
-   goto     RTU.rxCharacter   ; yes, process a binary character
+   goto     RTU.rxByte        ; yes, process a binary character
 
 
 
@@ -157,7 +159,9 @@ rxRTU:
 ;;  void UART.txCharacter()
 ;;
 UART.txCharacter:
-   return
+   tstfsz   MODBUS.Mode       ; are we in RTU transmission mode?
+     goto   ASCII.txCharacter ; no, process a text character
+   goto     RTU.txByte        ; yes, process a binary character
 
 
 

@@ -47,8 +47,8 @@ ISR.modbus:
 checkTx:
    btfss    PIE1, TXIE        ; are character transmission interrupts enabled?
      bra    checkTimer        ; no, check for timer overflow
-   btfsc    PIR1, TXIF        ; yes, was a character transmitted?
-     call   UART.txCharacter  ; yes, process it
+   btfsc    PIR1, TXIF        ; yes, is the transmit buffer empty?
+     call   UART.txCharacter  ; yes, try to send the next character
 
 checkTimer:
    ; Determine if our timer overflowed.

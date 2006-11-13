@@ -42,10 +42,11 @@
 
    global   MODBUS.calcParity
    global   MODBUS.checkParity
+   global   MODBUS.getFrameByte
    global   MODBUS.init
+   global   MODBUS.putFrameByte
    global   MODBUS.replyMsg
    global   MODBUS.resetFrame
-   global   MODBUS.storeFrameByte
    global   MODBUS.validateMsg
 
 
@@ -141,6 +142,36 @@ MODBUS.checkParity:
 
 
 ;; ----------------------------------------------
+;;  byte MODBUS.getFrameByte()
+;;
+MODBUS.getFrameByte:
+   ; Make sure we're not trying to read past the end of the buffer.
+   movf     MODBUS.MsgHead, W
+   cpfseq   MODBUS.MsgTail
+     bra    getByte
+
+   movf     MODBUS.MsgHead + 1, W
+   cpfseq   MODBUS.MsgTail + 1
+     bra    getByte
+
+   ; The head and tail pointers are equal, so we must be done.  Set the carry to
+   ; indicate that no byte was read.
+   bsf      STATUS, C
+   return
+
+getByte:
+   ; Not past the end yet, so read the next byte (indirectly).
+   LDADDR   MODBUS.MsgHead, FSR1L
+   movf     POSTINC1, W
+   LDADDR   FSR1L, MODBUS.MsgHead
+
+   ; Clear the status flag to indicate the value in W is valid.
+   bcf      STATUS, C
+   return
+
+
+
+;; ----------------------------------------------
 ;;  void MODBUS.init()
 ;;
 ;;  Initializes the device before falling through to the main event loop.
@@ -159,15 +190,62 @@ MODBUS.init:
 
 
 ;; ----------------------------------------------
+;;  woid MODBUS.putFrameByte( byte value )
+;;
+;;  todo: bounds checking
+;;
+MODBUS.putFrameByte:
+   ; Store the byte at the next message buffer location.  A tail pointer keeps
+   ; track of where it goes, so we fetch it first, then update its value with the
+   ; new tail location when we're finished.
+   LDADDR   MODBUS.MsgTail, FSR1L
+   movwf    POSTINC1
+   LDADDR   FSR1L, MODBUS.MsgTail
+   return
+
+
+
+;; ----------------------------------------------
 ;;  woid MODBUS.replyMsg()
 ;;
-;;  Attempts to send the message in the message buffer, which is a always in
-;;  reply to a message we previously received.
+;;  Attempts to send the message in the message buffer, which is always in re-
+;;  ply to a message we previously received.
 ;;
 MODBUS.replyMsg:
-   movlw    kState_Idle       ; debug
-   movwf    MODBUS.State      ; debug
+   ; This method does nothing if a complete, error-free server request isn't al-
+   ; ready available in the message buffer.
+   movlw    kState_MsgQueued
+   cpfseq   MODBUS.State      ; is there a message waiting for us?
+     return                   ; no, bail
+
+   ; DEBUG copy the received message to the transmit buffer (echo the message).
+   LDADDR   MODBUS.MsgHead, FSR0L; debug
+   movlw    LOW kTxBuffer     ; debug
+   movwf    FSR1L             ; debug
+   movlw    HIGH kTxBuffer    ; debug
+   movwf    FSR1H             ; debug
+                              ; debug
+copyLoop:                     ; debug
+   movf     FSR0L, W          ; debug
+   cpfseq   MODBUS.MsgTail    ; debug
+     bra    copyIt            ; debug
+                              ; debug
+   movf     FSR0H, W          ; debug
+   cpfseq   MODBUS.MsgTail + 1; debug
+     bra    copyIt            ; debug
+
+   ; Change state and enable the character transmitted interrupt.  If the transmit
+   ; buffer is empty, this will fire immediately, otherwise it will trigger after
+   ; the current byte is transmitted.
+   LDADDR   FSR1L, MODBUS.MsgTail
+   movlw    kState_EmitStart  ; prepare to transmit the message
+   movwf    MODBUS.State
+   bsf      PIE1, TXIE        ; enable the interrupt
    return
+
+copyIt:                       ; debug
+   movff    POSTINC0, POSTINC1; debug
+   bra      copyLoop          ; debug
 
 
 
@@ -190,20 +268,6 @@ MODBUS.resetFrame:
    ; Reset the frame error and event mask, since we're starting from scratch.
    clrf     MODBUS.FrameError
    clrf     MODBUS.Event
-   return
-
-
-
-;; ----------------------------------------------
-;;  woid MODBUS.storeFrameByte( byte value )
-;;
-MODBUS.storeFrameByte:
-   ; Store the byte at the next message buffer location.  A tail pointer keeps
-   ; track of where it goes, so we fetch it first, then update its value with the
-   ; new tail location when we're finished.
-   LDADDR   MODBUS.MsgTail, FSR1L
-   movwf    POSTINC1
-   LDADDR   FSR1L, MODBUS.MsgTail
    return
 
 

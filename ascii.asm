@@ -32,26 +32,36 @@
    extern   DIAG.logRxEvt
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
+   extern   MODBUS.getFrameByte
+   extern   MODBUS.putFrameByte
    extern   MODBUS.resetFrame
-   extern   MODBUS.storeFrameByte
    extern   MODBUS.validateMsg
 
    global   ASCII.init
    global   ASCII.rxCharacter
    global   ASCII.timeout
+   global   ASCII.txCharacter
 
 
-
-; ASCII mode requires special buffer handling, since we don't have enough
-; memory for two independent buffers.  However, since we convert ASCII
-; messages into RTU mode for processing anyway, we don't actually need sep-
-; arate buffers.  We do a reverse conversion just before transmission, back
-; into the receive buffer.
-kASCIIBuffer      equ   kRxBuffer
-kASCIIBufLen      equ   0x201
 
 ; Count of timer1 overflows in 1 second (~77 @ 20 MHz).
 kOneSecond        equ   1 + (kFrequency / (4 * 65536))
+
+
+
+;; ----------------------------------------------
+;;  Macro HEX2CHAR
+;;
+;;  Converts a hexadecimal nybble into the corresponding ASCII character.
+;;  0-9 become '0'-'9' and 10-15 become 'A'-'F'. 
+;;
+HEX2CHAR    macro
+   andlw    0xf               ; clamp the value to one nybble
+   addlw    0xf6              ; shift a "letter" nybble down to 0
+   btfss    STATUS, N         ; was result negative?
+     addlw  0x7               ; no, convert to character, less common constant
+   addlw    0x3a              ; yes, add constant to adjust
+   endm
 
 
 
@@ -104,6 +114,59 @@ ASCII.Timeouts       res   1     ; supports extra long (>1s) delays
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
+;;  void ASCII.ascii2rtu()
+;;
+;;  Converts the message in the kASCIIBuffer to binary (RTU) format in the
+;;  kRxBuffer.  Each original character contributes one nybble, so the result
+;;  is 50% smaller.  The main advantage, however, is being able to share
+;;  common code to verify address, validate checksum, and parse ASCII and RTU
+;;  messages.
+;;
+;;  This method expects FSR1 to point one past the end of the message buffer,
+;;  including the last two checksum characters (which we want to convert as
+;;  much the message).
+;;
+ASCII.ascii2rtu:
+   ; Initialize some pointers.
+   lfsr     FSR0, kASCIIBuffer; FSR0 = message head (ASCII)
+   lfsr     FSR2, kRxBuffer   ; FSR2 = message tail (RTU)
+
+a2rLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   FSR1L             ; are low bytes equal?
+     bra    a2rUpdate         ; no, keep going
+
+   movf     FSR0H, W
+   cpfseq   FSR1H             ; are high bytes equal?
+     bra    a2rUpdate         ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.  The last thing we do is
+   ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
+   ; like a 16-bit little-endian word to mimic the CRC16 used in RTU mode.
+   clrf     POSTDEC2
+   LDADDR   FSR2L, MODBUS.MsgTail
+   return
+
+a2rUpdate:
+   ; Read the next two characters and combine them into a single byte.
+   movf     POSTINC0, W       ; read the first character
+   rcall    ASCII.char2Hex    ; convert to nybble
+   swapf    WREG
+   movwf    MODBUS.Scratch
+
+   movf     POSTINC0, W       ; read the second character
+   rcall    ASCII.char2Hex    ; convert to nybble
+   iorwf    MODBUS.Scratch, W
+
+   ; Store the byte back into buffer.  We'll never catch up to our read pointer
+   ; since it's moving twice as fast.
+   movwf    POSTINC2
+   bra      a2rLoop           ; go back for the next pair
+
+
+
+;; ----------------------------------------------
 ;;  void ASCII.calcLRC( const char* buffer )
 ;;
 ;;  Calculates the Longitudinal Redundancy Checksum on the ASCII characters in
@@ -143,7 +206,7 @@ lrcUpdate:
 
 
 ;; ----------------------------------------------
-;;  byte ASCII.char2Hex( byte ascii )
+;;  byte ASCII.char2Hex( char ascii )
 ;;
 ;;  Converts the specified ASCII character code into the integer value corre-
 ;;  sponding to the hexadecimal digit it represents.  '0'-'9' become 0-9;
@@ -178,6 +241,47 @@ ASCII.init:
    movlw    kState_Idle
    movwf    MODBUS.State
    return
+
+
+
+;; ----------------------------------------------
+;;  void ASCII.rtu2ascii()
+;;
+;;  Converts a message in the kTxBuffer (RTU mode) to its ASCII represent-
+;;  ation in kASCIIBuffer.  This method assumes MODBUS.MsgTail points one past
+;;  the last message byte, not including the checksum.
+;;
+ASCII.rtu2ascii:
+   ; Initialize some pointers.
+   lfsr     FSR0, kTxBuffer   ; FSR0 = message head (RTU)
+   lfsr     FSR2, kASCIIBuffer; FSR2 = message tail (ASCII)
+
+r2aLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   MODBUS.MsgTail    ; are low bytes equal?
+     bra    r2aUpdate         ; no, keep going
+
+   movf     FSR0H, W
+   cpfseq   MODBUS.MsgTail + 1; are high bytes equal?
+     bra    r2aUpdate         ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.
+   LDADDR   FSR2L, MODBUS.MsgTail
+   return
+
+r2aUpdate:
+   ; Convert the high nybble of the next byte to an ASCII character.
+   movf     INDF0, W          ; read the byte, but don't advance the pointer
+   swapf    WREG              ; process the high nybble first
+   HEX2CHAR
+   movwf    POSTINC2          ; store it in the kASCIIBuffer
+
+   ; Convert the low nybble of the same byte.
+   movf     POSTINC0, W       ; re-read the byte and advance this time
+   HEX2CHAR
+   movwf    POSTINC2          ; store it
+   bra      r2aLoop           ; go back for the next byte
 
 
 
@@ -238,7 +342,7 @@ rxStash:
    ; Stash the character in the message buffer.
    call     MODBUS.checkParity; parity errors don't stop reception, just invalidate frame
    movf     UART.LastCharacter, W
-   call     MODBUS.storeFrameByte
+   call     MODBUS.putFrameByte
    bra      rxTimer
 
 rxWaiting:
@@ -274,7 +378,7 @@ rxWaiting:
    ; code to validate the address, verify the checksum, and parse the contents.
    lfsr     FSR0, kASCIIBuffer; FSR0 = message head
    rcall    ASCII.calcLRC
-   rcall    ASCII.xformRTU
+   rcall    ASCII.ascii2rtu
 
    call     MODBUS.validateMsg
    tstfsz   WREG              ; was the validation successful?
@@ -327,54 +431,81 @@ timeoutUpdate:
 
 
 ;; ----------------------------------------------
-;;  void ASCII.xformRTU()
+;;  void ASCII.txCharacter()
 ;;
-;;  Converts the message in the message buffer to binary (RTU) format.  Each
-;;  original character contributes one nybble, so the result is 50% smaller.
-;;  The main advantage, however, is being able to share common code to verify
-;;  address, validate checksum, and parse ASCII and RTU messages.
-;;
-;;  This method expects FSR1 to point one past the end of the message buffer,
-;;  including the last two checksum characters (which we want to convert as
-;;  much the message).
-;;
-ASCII.xformRTU:
-   ; Initialize some pointers.
-   lfsr     FSR0, kASCIIBuffer; FSR0 = message head (ASCII)
-   lfsr     FSR2, kRxBuffer   ; FSR2 = message tail (RTU)
+ASCII.txCharacter:
+   ; Determine the state of the state machine.
+   movlw    kState_EmitStart
+   cpfseq   MODBUS.State
+     bra    txEmission
 
-xformLoop:
-   ; Compare the head and tail pointers.
-   movf     FSR0L, W
-   cpfseq   FSR1L             ; are low bytes equal?
-     bra    xformUpdate       ; no, keep going
+   ; Emit Start State:  a message reply we want to send is waiting in kASCIIBuffer,
+   ; but we must calculate its checksum before we can transmit it.
+   rcall    ASCII.rtu2ascii   ; convert to ASCII mode first
+   lfsr     FSR0, kASCIIBuffer
+   rcall    ASCII.calcLRC     ; calculate the checksum
 
-   movf     FSR0H, W
-   cpfseq   FSR1H             ; are high bytes equal?
-     bra    xformUpdate       ; no, keep going
+   ; Store the checksum at the end of the message buffer and update the tail.
+   movf     MODBUS.Checksum, W
+   swapf    WREG
+   HEX2CHAR
+   movwf    POSTINC0
 
-   ; The head and tail pointers are equal, so we're done.  The last thing we do is
-   ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
-   ; like a 16-bit little-endian word to mimic the CRC16 used in RTU mode.
-   clrf     POSTDEC2
-   LDADDR   FSR2L, MODBUS.MsgTail
+   movf     MODBUS.Checksum, W
+   HEX2CHAR
+   movwf    POSTINC0
+   LDADDR   FSR0L, MODBUS.MsgTail
+
+   ; Transmit the start-of-frame character and switch to the next state.
+   movlw    kState_Emission
+   movwf    MODBUS.State
+   movlw    ':'
+   bra      txStash
+
+txEmission:
+   ; Check for the next state concerned with transmitted characters.
+   movlw    kState_Emission
+   cpfseq   MODBUS.State
+     bra    txEmitEnd
+
+   ; Emission State:  send the next message character, if available.  If not, we
+   ; must have sent the whole message.
+   call     MODBUS.getFrameByte
+   bnc      txStash
+
+   movlw    kState_EmitEnd
+   movwf    MODBUS.State
+   movlw    '\r'
+
+txStash:
+   movwf    TXREG             ; todo: calc parity
    return
 
-xformUpdate:
-   ; Read the next two characters and combine them into a single byte.
-   movf     POSTINC0, W       ; read the first charecter
-   rcall    ASCII.char2Hex    ; convert to nybble
-   swapf    WREG
-   movwf    MODBUS.Scratch
+txEmitEnd:
+   ; Check for the next state concerned with transmitted characters.
+   movlw    kState_EmitEnd
+   cpfseq   MODBUS.State
+     bra    txEmitDone
 
-   movf     POSTINC0, W       ; read the second character
-   rcall    ASCII.char2Hex    ; convert to nybble
-   iorwf    MODBUS.Scratch, W
+   ; Emit End State: the first byte of the end-of-frame marker has been sent.  Now
+   ; send the ASCII delimiter.
+   movlw    kState_EmitDone
+   movwf    MODBUS.State
+   movf     ASCII.Delimiter, W
+   bra      txStash
 
-   ; Store the byte back into buffer.  We'll never catch up to our read pointer
-   ; since it's moving twice as fast.
-   movwf    POSTINC2
-   bra      xformLoop         ; go back for the next pair
+txEmitDone:
+   ; Check for the next state concerned with transmitted characters.
+   movlw    kState_EmitDone
+   cpfseq   MODBUS.State
+     return
+
+   ; Emit Done State: we've successfully transmitted our message reply, including
+   ; it's checksum, the end-of-frame marker, and ASCII delimiter.  We're idle!
+   movlw    kState_Idle
+   movwf    MODBUS.State
+   bcf      PIE1, TXIE
+   return
 
 
 

@@ -18,16 +18,6 @@
 ; Everyone should agree on the CPU clock speed.
 kFrequency  equ   20000000    ; 20 MHz
 
-; Base pointers to special buffers.
-kLogBuffer  equ   0x0040
-kLogBufLen  equ   0x0040
-
-kRxBuffer   equ   kLogBuffer + kLogBufLen
-kRxBufLen   equ   0x100
-
-kTxBuffer   equ   kRxBuffer + kRxBufLen
-kTxBufLen   equ   kRxBufLen
-
 ; Enumerate the baud rates we support.  Trick: each value is a valid Baud Rate
 ; Generator (BRG) for the clock speed, above.
 kBaud_9600   equ  (kFrequency / (  9600 << 4)) - 1    ; 129 (0x81) @ 20 MHz
@@ -50,9 +40,10 @@ kState_Idle          equ   1
 kState_EmitStart     equ   2
 kState_Emission      equ   3
 kState_EmitEnd       equ   4
-kState_Reception     equ   5
-kState_Waiting       equ   6
-kState_MsgQueued     equ   7
+kState_EmitDone      equ   5
+kState_Reception     equ   6
+kState_Waiting       equ   7
+kState_MsgQueued     equ   8
 
 ; Bit fields for receive events in the event log.
 kRxEvt_CommErr       equ   1
@@ -73,6 +64,23 @@ kTxEvt_ListenOnly    equ   5
 ; Dedicated event types in the event log.
 kCmdEvt_ListenOnly   equ   0x04
 kCmdEvt_Restart      equ   0x00
+
+; Base pointers to special buffers.  ASCII mode requires special buffer
+; handling, since we don't have enough memory for two independent buffers.
+; However, since we convert ASCII messages into RTU mode for processing any-
+; way, we don't actually need separate buffers.  We do a reverse conversion
+; just before transmission, back into the receive buffer.
+kLogBuffer     equ   0x0040
+kLogBufLen     equ   0x0040
+
+kRxBuffer      equ   kLogBuffer + kLogBufLen
+kRxBufLen      equ   0x100
+
+kTxBuffer      equ   kRxBuffer + kRxBufLen
+kTxBufLen      equ   kRxBufLen
+
+kASCIIBuffer   equ   kRxBuffer
+kASCIIBufLen   equ   0x201
 
 
 

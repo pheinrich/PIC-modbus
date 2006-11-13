@@ -31,13 +31,14 @@
    extern   DIAG.logRxEvt
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
+   extern   MODBUS.putFrameByte
    extern   MODBUS.resetFrame
-   extern   MODBUS.storeFrameByte
    extern   MODBUS.validateMsg
 
    global   RTU.init
-   global   RTU.rxCharacter
+   global   RTU.rxByte
    global   RTU.timeout
+   global   RTU.txByte
 
 
 
@@ -240,13 +241,13 @@ copyDelays:
 
 
 ;; ----------------------------------------------
-;;  void RTU.rxCharacter()
+;;  void RTU.rxByte()
 ;;
-;;  Processes a received character according to the current state of the state
-;;  machine.  See §2.5.1.1 of the "MODBUS over serial line implementation guide
-;;  V1.0".
+;;  Processes a received binary character according to the current state of
+;;  the state machine.  See §2.5.1.1 of the "MODBUS over serial line imple-
+;;  mentation guide V1.0".
 ;;
-RTU.rxCharacter:
+RTU.rxByte:
    ; Determine the state of the state machine, since characters received at diff-
    ; erent times result in different actions.
    movlw    kState_Init
@@ -284,7 +285,7 @@ rxStash:
    ; is detected.
    call     MODBUS.checkParity; parity errors don't stop reception, just invalidate frame
    movf     UART.LastCharacter, W
-   call     MODBUS.storeFrameByte
+   call     MODBUS.putFrameByte
    TIMER1   RTU.CharTimeout   ; reset the character timeout timer
    return
 
@@ -382,6 +383,14 @@ timeoutIdle:
    movwf    MODBUS.State
    bcf      PIE1, TMR1IE      ; disable timer1 interrupts
 
+   return
+
+
+
+;; ----------------------------------------------
+;;  void RTU.txByte()
+;;
+RTU.txByte:
    return
 
 
