@@ -19,9 +19,9 @@
 
    ; Variables
    extern   MODBUS.Checksum
-   extern   MODBUS.FrameError
    extern   MODBUS.Event
    extern   MODBUS.MsgTail
+   extern   MODBUS.ParityCheck
    extern   MODBUS.Scratch
    extern   MODBUS.State
    extern   UART.LastCharacter
@@ -46,22 +46,6 @@
 
 ; Count of timer1 overflows in 1 second (~77 @ 20 MHz).
 kOneSecond        equ   1 + (kFrequency / (4 * 65536))
-
-
-
-;; ----------------------------------------------
-;;  Macro HEX2CHAR
-;;
-;;  Converts a hexadecimal nybble into the corresponding ASCII character.
-;;  0-9 become '0'-'9' and 10-15 become 'A'-'F'. 
-;;
-HEX2CHAR    macro
-   andlw    0xf               ; clamp the value to one nybble
-   addlw    0xf6              ; shift a "letter" nybble down to 0
-   btfss    STATUS, N         ; was result negative?
-     addlw  0x7               ; no, convert to character, less common constant
-   addlw    0x3a              ; yes, add constant to adjust
-   endm
 
 
 
@@ -228,6 +212,22 @@ adjust:
 
 
 ;; ----------------------------------------------
+;;  char ASCII.hex2char( byte nybble )
+;;
+;;  Converts a hexadecimal nybble into the corresponding ASCII character.
+;;  0-9 become '0'-'9' and 10-15 become 'A'-'F'. 
+;;
+ASCII.hex2char:
+   andlw    0xf               ; clamp the value to one nybble
+   addlw    0xf6              ; shift a "letter" nybble down to 0
+   btfss    STATUS, N         ; was result negative?
+     addlw  0x7               ; no, convert to character, less common constant
+   addlw    0x3a              ; yes, add constant to adjust
+   return
+
+
+
+;; ----------------------------------------------
 ;;  void ASCII.init()
 ;;
 ;;  Initializes the ASCII mode state machine and some associated variables.
@@ -274,12 +274,12 @@ r2aUpdate:
    ; Convert the high nybble of the next byte to an ASCII character.
    movf     INDF0, W          ; read the byte, but don't advance the pointer
    swapf    WREG              ; process the high nybble first
-   HEX2CHAR
+   rcall    ASCII.hex2char
    movwf    POSTINC2          ; store it in the kASCIIBuffer
 
    ; Convert the low nybble of the same byte.
    movf     POSTINC0, W       ; re-read the byte and advance this time
-   HEX2CHAR
+   rcall    ASCII.hex2char
    movwf    POSTINC2          ; store it
    bra      r2aLoop           ; go back for the next byte
 
@@ -366,6 +366,9 @@ rxWaiting:
    ; last two characters, since they represent the checksum computed by the send-
    ; er, which we don't want to include in our checksum calculation.
    bcf      PIE1, TMR1IE      ; disable timer1 interrupts
+   movlw    (1 << kRxEvt_CommErr) | (1 << kRxEvt_Overrun)
+   andwf    MODBUS.Event, W   ; were there communication errors?
+   bnz      rxDone            ; yes, discard the frame
    LDADDR   MODBUS.MsgTail, FSR1L; save the old value for later
 
    movlw    0x2               ; rewind 2 characters
@@ -400,6 +403,40 @@ rxDone:
    
 
 ;; ----------------------------------------------
+;;  char ASCII.setParity( char toSend )
+;;
+;;  Calculates the correct parity for the 7-bit character specified.  The
+;;  current parity configuration (Even, Odd, or None) is taken into account.
+;;
+ASCII.setParity:
+   ; Assume no parity.
+   andlw    0x7f              ; clear the parity bit
+   movwf    MODBUS.Scratch + 1; preserve the character during computation
+
+   ; If configured for No Parity, we're done.
+   movlw    kParity_None
+   cpfslt   MODBUS.ParityCheck
+     bra    setDone
+
+   ; Calculate the even parity of the character to send.
+   movf     MODBUS.Scratch + 1, W
+   call     MODBUS.calcParity ; count bits in character
+   btfsc    WREG, 0           ; is the count even?
+     bsf    MODBUS.Scratch + 1, 7; no, set the MSB
+
+   ; If configured for Odd Parity, flip the MSB we just set (or reset).
+   movlw    kParity_Odd
+   cpfslt   MODBUS.ParityCheck
+     btg    MODBUS.Scratch + 1, 7
+
+setDone:
+   ; Restore the original character, plus or minus the correct parity bit.
+   movf     MODBUS.Scratch + 1, W
+   return
+
+
+
+;; ----------------------------------------------
 ;;  void ASCII.timeout()
 ;;
 ;;  Updates the state machine in response to a timer overflow.  The timer is
@@ -424,7 +461,7 @@ timeoutUpdate:
    decfsz   ASCII.Timeouts    ; has 1 second expired?
      return                   ; no, keep waiting
 
-   setf     MODBUS.FrameError ; yes, so frame is incomplete
+   bsf      MODBUS.Event, kRxEvt_CommErr; yes, so frame is incomplete
    bcf      PIE1, TMR1IE      ; disable redundant timer1 interrupts
    return
 
@@ -448,11 +485,11 @@ ASCII.txCharacter:
    ; Store the checksum at the end of the message buffer and update the tail.
    movf     MODBUS.Checksum, W
    swapf    WREG
-   HEX2CHAR
+   rcall    ASCII.hex2char
    movwf    POSTINC0
 
    movf     MODBUS.Checksum, W
-   HEX2CHAR
+   rcall    ASCII.hex2char
    movwf    POSTINC0
    LDADDR   FSR0L, MODBUS.MsgTail
 
@@ -478,7 +515,8 @@ txEmission:
    movlw    '\r'
 
 txStash:
-   movwf    TXREG             ; todo: calc parity
+   rcall    ASCII.setParity
+   movwf    TXREG
    return
 
 txEmitEnd:

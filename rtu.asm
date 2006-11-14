@@ -21,7 +21,6 @@
    extern   MODBUS.BaudRate
    extern   MODBUS.Checksum
    extern   MODBUS.Event
-   extern   MODBUS.FrameError
    extern   MODBUS.MsgTail
    extern   MODBUS.Scratch
    extern   MODBUS.State
@@ -298,7 +297,7 @@ rxCtrlWait:
    ; Control-Wait State:  characters received now indicate a partial frame was
    ; received.  Now we must wait for a full frame timeout period to elapse before
    ; it's safe to go idle again.
-   setf     MODBUS.FrameError ; note that the frame should be discarded
+   bsf      MODBUS.Event, kRxEvt_CommErr; note that the frame should be discarded
 
 rxFrame:
    ; Reset the frame timeout timer.
@@ -355,6 +354,10 @@ timeoutWaiting:
    ; elapsed since the last character was received.  The last two message bytes
    ; hold the checksum computed by the sender (which we don't want to include in
    ; our checksum calculation), so pull the tail in by 2.
+   movlw    (1 << kRxEvt_CommErr) | (1 << kRxEvt_Overrun)
+   andwf    MODBUS.Event, W   ; were there communication errors?
+   bnz      timeoutDone       ; yes, discard the frame
+
    movlw    0x2
    subwf    MODBUS.MsgTail
    movlw    0x0

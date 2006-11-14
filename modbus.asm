@@ -26,7 +26,6 @@
    global   MODBUS.BaudRate
    global   MODBUS.Event
    global   MODBUS.Checksum
-   global   MODBUS.FrameError
    global   MODBUS.Mode
    global   MODBUS.MsgTail
    global   MODBUS.NoChecksum
@@ -58,7 +57,6 @@
 MODBUS.Address       res   1  ; uniquely identifies this device on the bus
 MODBUS.BaudRate      res   1  ; kBaud_9600, kBaud_19200 (default), etc.
 MODBUS.Event         res   1  ; kRxEvt_CommErr, kRxEvt_Broadcast, kTxEvt_Abort, etc.
-MODBUS.FrameError    res   1  ; 0 = false, 255 = true
 MODBUS.Mode          res   1  ; kMode_ASCII or kMode_RTU (default)
 MODBUS.NoChecksum    res   1  ; 0 = false (default), 255 = true
 MODBUS.ParityCheck   res   1  ; kParity_Even (default), kParity_Off, kParity_None
@@ -112,8 +110,8 @@ MODBUS.calcParity:
 ;;  void MODBUS.checkParity()
 ;;
 ;;  Determines if the last character received by the UART satisfies the parity
-;;  condition configured by the user.  If not, MODBUS.FrameError is set to
-;;  indicate as much.
+;;  condition configured by the user.  If not, kRxEvt_CommErr is added to the
+;;  current event to indicate as much.
 ;;
 MODBUS.checkParity:
    ; If configured for No Parity, don't do any checks.
@@ -136,7 +134,7 @@ MODBUS.checkParity:
 
    ; If the final result is not 0, the parity does not match.
    btfsc    MODBUS.Scratch, 0
-     setf   MODBUS.FrameError
+     bsf    MODBUS.Event, kRxEvt_CommErr
    return
 
 
@@ -265,8 +263,7 @@ MODBUS.resetFrame:
    movwf    MODBUS.MsgHead + 1
    movwf    MODBUS.MsgTail + 1
 
-   ; Reset the frame error and event mask, since we're starting from scratch.
-   clrf     MODBUS.FrameError
+   ; Reset the event mask, since we're starting from scratch.
    clrf     MODBUS.Event
    return
 

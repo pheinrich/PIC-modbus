@@ -20,7 +20,6 @@
    ; Variables
    extern   MODBUS.BaudRate
    extern   MODBUS.Event
-   extern   MODBUS.FrameError
    extern   MODBUS.Mode
 
    global   UART.LastCharacter
@@ -98,10 +97,8 @@ UART.init:
    bcf      RCSTA, RX9
 
 initInts:
-   ; Enable interrupts.
+   ; Enable interrupts and we're all done.
    bsf      PIE1, RCIE        ; character received
-;   bsf      PIE1, TXIE        ; character transmitted
-
    return
 
 
@@ -130,7 +127,6 @@ UART.rxCharacter:
    bcf      RCSTA, CREN       ; swizzle the bit to clear the error
    bsf      RCSTA, CREN
    bsf      MODBUS.Event, kRxEvt_Overrun
-   setf     MODBUS.FrameError ; note to self: discard the frame later
 
 rxChar:
    ; Read the character to clear the interrupt flag.
@@ -158,7 +154,14 @@ rxRTU:
 ;; ----------------------------------------------
 ;;  void UART.txCharacter()
 ;;
+;;  Handles reloading the UART transmission buffer with the next byte to send.
+;;  This method is called after the UART has finished sending the previous
+;;  byte.  In contrast to UART.rxCharacter(), very little happens here; the
+;;  transmission mode is checked and then we delegate to the appropriate state
+;;  machine.
+;;
 UART.txCharacter:
+   ; Determine which state machine should handle the situation.
    tstfsz   MODBUS.Mode       ; are we in RTU transmission mode?
      goto   ASCII.txCharacter ; no, process a text character
    goto     RTU.txByte        ; yes, process a binary character

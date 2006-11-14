@@ -65,6 +65,11 @@ kTxEvt_ListenOnly    equ   5
 kCmdEvt_ListenOnly   equ   0x04
 kCmdEvt_Restart      equ   0x00
 
+; Option flags
+kDiag_RetQuery    equ   7
+kDiag_ListenOnly  equ   6
+kDiag_Busy        equ   5
+
 ; Base pointers to special buffers.  ASCII mode requires special buffer
 ; handling, since we don't have enough memory for two independent buffers.
 ; However, since we convert ASCII messages into RTU mode for processing any-
