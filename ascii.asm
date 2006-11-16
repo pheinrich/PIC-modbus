@@ -35,6 +35,7 @@
    extern   MODBUS.getFrameByte
    extern   MODBUS.putFrameByte
    extern   MODBUS.resetFrame
+   extern   MODBUS.setParity
    extern   MODBUS.validateMsg
 
    global   ASCII.init
@@ -403,40 +404,6 @@ rxDone:
    
 
 ;; ----------------------------------------------
-;;  char ASCII.setParity( char toSend )
-;;
-;;  Calculates the correct parity for the 7-bit character specified.  The
-;;  current parity configuration (Even, Odd, or None) is taken into account.
-;;
-ASCII.setParity:
-   ; Assume no parity.
-   andlw    0x7f              ; clear the parity bit
-   movwf    MODBUS.Scratch + 1; preserve the character during computation
-
-   ; If configured for No Parity, we're done.
-   movlw    kParity_None
-   cpfslt   MODBUS.ParityCheck
-     bra    setDone
-
-   ; Calculate the even parity of the character to send.
-   movf     MODBUS.Scratch + 1, W
-   call     MODBUS.calcParity ; count bits in character
-   btfsc    WREG, 0           ; is the count even?
-     bsf    MODBUS.Scratch + 1, 7; no, set the MSB
-
-   ; If configured for Odd Parity, flip the MSB we just set (or reset).
-   movlw    kParity_Odd
-   cpfslt   MODBUS.ParityCheck
-     btg    MODBUS.Scratch + 1, 7
-
-setDone:
-   ; Restore the original character, plus or minus the correct parity bit.
-   movf     MODBUS.Scratch + 1, W
-   return
-
-
-
-;; ----------------------------------------------
 ;;  void ASCII.timeout()
 ;;
 ;;  Updates the state machine in response to a timer overflow.  The timer is
@@ -515,7 +482,10 @@ txEmission:
    movlw    '\r'
 
 txStash:
-   rcall    ASCII.setParity
+   andlw    0x7f
+   rcall    MODBUS.setParity
+   btfsc    STATUS, C
+     iorlw  0x80
    movwf    TXREG
    return
 

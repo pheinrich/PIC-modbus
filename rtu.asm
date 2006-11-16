@@ -22,6 +22,7 @@
    extern   MODBUS.Checksum
    extern   MODBUS.Event
    extern   MODBUS.MsgTail
+   extern   MODBUS.ParityCheck
    extern   MODBUS.Scratch
    extern   MODBUS.State
    extern   UART.LastCharacter
@@ -30,8 +31,10 @@
    extern   DIAG.logRxEvt
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
+   extern   MODBUS.getFrameByte
    extern   MODBUS.putFrameByte
    extern   MODBUS.resetFrame
+   extern   MODBUS.setParity
    extern   MODBUS.validateMsg
 
    global   RTU.init
@@ -394,6 +397,47 @@ timeoutIdle:
 ;;  void RTU.txByte()
 ;;
 RTU.txByte:
+   ; Determine the state of the state machine.
+   movlw    kState_EmitStart
+   cpfseq   MODBUS.State
+     bra    txEmission
+
+   ; Emit Start State:  a message reply we want to send is waiting in kTxBuffer,
+   ; but we must calculate its checksum before we can transmit it.
+   lfsr     FSR0, kTxBuffer
+   rcall    RTU.calcCRC
+
+   ; Store the checksum at the end of the message buffer and update the tail.
+   movff    MODBUS.Checksum, POSTINC0
+   movff    MODBUS.Checksum + 1, POSTINC0
+   LDADDR   MODBUS.Checksum, MODBUS.MsgTail
+
+   ; Switch states so we can start sending message bytes.
+   movlw    kState_Emission
+   movwf    MODBUS.State
+
+txStash:
+   bcf      RCSTA, RX9D
+   call     MODBUS.setParity
+   btfsc    STATUS, C
+     bsf    RCSTA, RX9D
+   movwf    TXREG
+   return
+
+txEmission:
+   ; Check for the next state concerned with transmitted bytes.
+   movlw    kState_Emission
+   cpfseq   MODBUS.State
+     return
+
+   ; Emission State:  send the next message byte, if available.  If not, we must
+   ; have sent the whole message
+   call     MODBUS.getFrameByte
+   bnc      txStash
+
+   ; Set a timer after the last character is transmitted.  Once it expires we can
+   ; return to the idle state.
+   TIMER1   RTU.FrameTimeout
    return
 
 

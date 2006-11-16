@@ -46,6 +46,7 @@
    global   MODBUS.putFrameByte
    global   MODBUS.replyMsg
    global   MODBUS.resetFrame
+   global   MODBUS.setParity
    global   MODBUS.validateMsg
 
 
@@ -265,6 +266,39 @@ MODBUS.resetFrame:
 
    ; Reset the event mask, since we're starting from scratch.
    clrf     MODBUS.Event
+   return
+
+
+
+;; ----------------------------------------------
+;;  void MODBUS.setParity( byte toSend )
+;;
+MODBUS.setParity:
+   ; Assume no parity.
+   bcf      STATUS, C
+   movwf    MODBUS.Scratch + 1; preserve the character during computation
+
+   ; If configured for No Parity, we're done.
+   movlw    kParity_None
+   cpfslt   MODBUS.ParityCheck
+     bra    setDone
+
+   ; Calculate the even parity of the character to send.
+   movf     MODBUS.Scratch + 1, W
+   call     MODBUS.calcParity ; count bits in character
+
+   bcf      STATUS, C         ; assume the bit count is even
+   btfsc    WREG, 0           ; is it?
+     bsf    STATUS, C         ; no, make it so
+
+   ; If configured for Odd Parity, flip the MSB we just set (or reset).
+   movlw    kParity_Odd
+   cpfslt   MODBUS.ParityCheck
+     btg    STATUS, C
+
+setDone:
+   ; Restore the original character, plus or minus the correct parity bit.
+   movf     MODBUS.Scratch + 1, W
    return
 
 
