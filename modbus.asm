@@ -27,6 +27,7 @@
    global   MODBUS.Event
    global   MODBUS.Checksum
    global   MODBUS.Mode
+   global   MODBUS.MsgHead
    global   MODBUS.MsgTail
    global   MODBUS.NoChecksum
    global   MODBUS.ParityCheck

@@ -30,6 +30,7 @@
 
    ; Methods
    extern   DIAG.logRxEvt
+   extern   DIAG.logTxEvt
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
    extern   MODBUS.getFrameByte
@@ -477,16 +478,17 @@ txEmission:
    call     MODBUS.getFrameByte
    bnc      txStash
 
-   movlw    kState_EmitEnd
+   movlw    kState_EmitEnd    ; switch state
    movwf    MODBUS.State
-   movlw    '\r'
+   movlw    '\r'              ; send first frame delimiter character
 
 txStash:
-   andlw    0x7f
+   ; Set the parity bit as appropriate and transmit the character.
+   andlw    0x7f              ; assume the parity bit is clear
    rcall    MODBUS.setParity
-   btfsc    STATUS, C
-     iorlw  0x80
-   movwf    TXREG
+   btfsc    STATUS, C         ; should parity bit be set?
+     iorlw  0x80              ; yes, set the MSB of the character
+   movwf    TXREG             ; transmit the character
    return
 
 txEmitEnd:
@@ -513,7 +515,7 @@ txEmitDone:
    movlw    kState_Idle
    movwf    MODBUS.State
    bcf      PIE1, TXIE
-   return
+   goto     DIAG.logTxEvt
 
 
 

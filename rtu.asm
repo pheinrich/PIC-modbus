@@ -21,6 +21,7 @@
    extern   MODBUS.BaudRate
    extern   MODBUS.Checksum
    extern   MODBUS.Event
+   extern   MODBUS.MsgHead
    extern   MODBUS.MsgTail
    extern   MODBUS.ParityCheck
    extern   MODBUS.Scratch
@@ -29,6 +30,7 @@
 
    ; Methods
    extern   DIAG.logRxEvt
+   extern   DIAG.logTxEvt
    extern   MODBUS.calcParity
    extern   MODBUS.checkParity
    extern   MODBUS.getFrameByte
@@ -317,20 +319,21 @@ RTU.timeout:
    ; erent times result in different actions.
    movlw    kState_Init
    cpfseq   MODBUS.State      ; is state machine in initial state?
-     bra    timeoutEmission   ; no, check if emission state
+     bra    timeoutEmitEnd    ; no, check if emit end state
 
    ; Initial State:  a timeout here indicates a full frame timeout period has
    ; elapsed.  It's now safe to enter the idle state.
    bra      timeoutIdle
 
-timeoutEmission:
+timeoutEmitEnd:
    ; Check for the next state concerned with timeouts.
-   movlw    kState_Emission
-   cpfseq   MODBUS.State      ; is state machine in emission state?
+   movlw    kState_EmitEnd
+   cpfseq   MODBUS.State      ; is state machine in emit end state?
      bra    timeoutReception  ; no, check if reception state
 
-   ; Emission State:  a timeout here indicates our emission has been set off by a
+   ; Emit End State:  a timeout here indicates our emission has been set off by a
    ; full frame timeout period.  We're idle again.
+   call     DIAG.logTxEvt
    bra      timeoutIdle
 
 timeoutReception:
@@ -354,14 +357,12 @@ timeoutWaiting:
      return                   ; no, we can exit
 
    ; Control-Wait State:  a timeout here means a full frame timeout period has
-   ; elapsed since the last character was received.  The last two message bytes
-   ; hold the checksum computed by the sender (which we don't want to include in
-   ; our checksum calculation), so pull the tail in by 2.
+   ; elapsed since the last character was received.
    movlw    (1 << kRxEvt_CommErr) | (1 << kRxEvt_Overrun)
    andwf    MODBUS.Event, W   ; were there communication errors?
    bnz      timeoutDone       ; yes, discard the frame
 
-   movlw    0x2
+   movlw    0x2               ; rewind 2 characters
    subwf    MODBUS.MsgTail
    movlw    0x0
    subwfb   MODBUS.MsgTail + 1
@@ -377,6 +378,7 @@ timeoutWaiting:
    ; No reception errors, no checksum errors, and the message is addressed to us.
    movlw    kState_MsgQueued  ; alert the main event loop that a message has arrived
    movwf    MODBUS.State
+   bcf      PIE1, TMR1IE      ; disable further timer1 interrupts
    goto     DIAG.logRxEvt     ; log the receive event in the event log
 
 timeoutDone:
@@ -405,23 +407,30 @@ RTU.txByte:
    ; Emit Start State:  a message reply we want to send is waiting in kTxBuffer,
    ; but we must calculate its checksum before we can transmit it.
    lfsr     FSR0, kTxBuffer
+   LDADDR   FSR0L, MODBUS.MsgHead
    rcall    RTU.calcCRC
 
    ; Store the checksum at the end of the message buffer and update the tail.
    movff    MODBUS.Checksum, POSTINC0
    movff    MODBUS.Checksum + 1, POSTINC0
-   LDADDR   MODBUS.Checksum, MODBUS.MsgTail
+   LDADDR   FSR0L, MODBUS.MsgTail
 
    ; Switch states so we can start sending message bytes.
    movlw    kState_Emission
    movwf    MODBUS.State
 
 txStash:
-   bcf      RCSTA, RX9D
-   call     MODBUS.setParity
+   ; Get the next byte from the message buffer.  If none is available, the carry
+   ; flag will be set on return.
+   call     MODBUS.getFrameByte
+   bc       txEnd
+
+   ; Calculate and set the parity bit, as necessary.
+   bcf      TXSTA, TX9D       ; assume the parity bit is clear
+   call     MODBUS.setParity  ; sets C = correct parity bit
    btfsc    STATUS, C
-     bsf    RCSTA, RX9D
-   movwf    TXREG
+     bsf    TXSTA, TX9D       ; copy carry to ninth bit
+   movwf    TXREG             ; transmit the byte + parity
    return
 
 txEmission:
@@ -431,13 +440,16 @@ txEmission:
      return
 
    ; Emission State:  send the next message byte, if available.  If not, we must
-   ; have sent the whole message
-   call     MODBUS.getFrameByte
-   bnc      txStash
+   ; have sent the whole message.
+   bra      txStash
 
+txEnd:
    ; Set a timer after the last character is transmitted.  Once it expires we can
    ; return to the idle state.
-   TIMER1   RTU.FrameTimeout
+   movlw    kState_EmitEnd
+   movwf    MODBUS.State
+   bcf      PIE1, TXIE        ; disable empty transmit buffer interrupts
+   TIMER1   RTU.FrameTimeout  ; pause before returning to idle state
    return
 
 

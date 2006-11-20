@@ -129,25 +129,26 @@ UART.rxCharacter:
    bsf      MODBUS.Event, kRxEvt_Overrun
 
 rxChar:
+   ; We must read the ninth bit before the actual receive register, just in case
+   ; it will be used for parity.
+   clrf     UART.LastParity   ; assume parity bit is clear
+   btfsc    RCSTA, RX9D       ; is the ninth bit set?
+     setf   UART.LastParity   ; yes, save (potential) parity bit
+
    ; Read the character to clear the interrupt flag.
    movff    RCREG, UART.LastCharacter
 
-   ; Determine how to find the parity bit and which state machine to update.
-   clrf     UART.LastParity   ; assume parity bit is clear
-   movf     MODBUS.Mode       ; are we in RTU transmission mode?
-   bz       rxRTU             ; yes, process a binary character
+   ; If in RTU mode, we already have the parity bit (from above).  In ASCII mode,
+   ; though, it comes from the MSB of the character itself.
+   movf     MODBUS.Mode
+   btfsc    STATUS, Z         ; are we in RTU mode?
+     goto   RTU.rxByte        ; yes, proceed to state machine update
 
    ; ASCII mode, so the parity bit comes from the MSB of the character.
    btfsc    UART.LastCharacter, 7
      setf   UART.LastParity   ; copy the MSB as the parity value, then clear it
    bcf      UART.LastCharacter, 7
    goto     ASCII.rxCharacter ; update the ASCII state machine
-
-rxRTU:
-   ; RTU mode, so the parity bit comes from the reception status register.
-   btfsc    RCSTA, RX9D
-     setf   UART.LastParity   ; copy the status bit as parity value
-   goto     RTU.rxByte        ; yes, process a binary character
 
 
 
