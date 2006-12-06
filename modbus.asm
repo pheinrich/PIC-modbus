@@ -234,6 +234,9 @@ copyLoop:                     ; debug
    cpfseq   MODBUS.MsgTail + 1; debug
      bra    copyIt            ; debug
 
+;   movlw    0xb5
+;   movwf    POSTINC1
+
    ; Change state and enable the character transmitted interrupt.  If the transmit
    ; buffer is empty, this will fire immediately, otherwise it will trigger after
    ; the current byte is transmitted.
