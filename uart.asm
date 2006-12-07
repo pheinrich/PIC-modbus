@@ -32,6 +32,8 @@
    extern   RTU.txByte
 
    global   UART.init
+   global   UART.printHex
+   global   UART.printString
    global   UART.rxCharacter
    global   UART.txCharacter
 
@@ -43,6 +45,7 @@
    
 UART.LastCharacter      res   1
 UART.LastParity         res   1
+UART.Scratch				res	1
 
 
 
@@ -100,6 +103,68 @@ initInts:
    ; Enable interrupts and we're all done.
    bsf      PIE1, RCIE        ; character received
    return
+
+
+
+;; ----------------------------------------------
+;;  void UART.printHex( byte value )
+;;
+;;  Transmits two hex digits (ASCII characters in [0-9A-F] representing the
+;;  specified byte.  W is unchanged.
+;;
+UART.printHex:
+   movwf    UART.Scratch
+
+	; Convert high nybble to ASCII character.
+   swapf    WREG					; work on lower 4 bits
+   andlw    0xf               ; clamp the value to one nybble
+   addlw    0xf6              ; shift a "letter" nybble down to 0
+   btfss    STATUS, N         ; was result negative?
+     addlw  0x7               ; no, convert to character, less common constant
+   addlw    0x3a              ; yes, add constant to adjust
+
+	; Transmit first character.
+   btfss    TXSTA, TRMT			; is UART busy?
+     bra    $-2					; yes, wait until finished
+   movwf    TXREG					; no, transmit character
+
+	; Convert low nybble to ASCII character.
+   movf     UART.Scratch, W	; retrieve saved lower bits
+   andlw    0xf               ; clamp the value to one nybble
+   addlw    0xf6              ; shift a "letter" nybble down to 0
+   btfss    STATUS, N         ; was result negative?
+     addlw  0x7               ; no, convert to character, less common constant
+   addlw    0x3a              ; yes, add constant to adjust
+
+	; Transmit second character.
+   btfss    TXSTA, TRMT			; is UART busy?
+     bra    $-2					; yes, wait until finished
+   movwf    TXREG					; no, transmit character
+
+   movf     UART.Scratch, W
+	return
+
+
+
+;; ----------------------------------------------
+;;  void UART.printString( const char* string )
+;;
+;;  Transmits the C-string (NUL-terminated) whose ROM address has been pre-
+;;  loaded into TBLPTRx.
+;;
+UART.printString:
+	; Read the next character.
+	tblrd*+
+	movf		TABLAT, W
+	bnz		psOut					; is character NUL ('\0')?
+	return							; yes, we're done
+
+psOut:
+	; Output a character.
+	btfss		TXSTA, TRMT			; is UART busy?
+	  bra		$-2					; yes, wait until finished
+	movwf		TXREG					; no, transmit character
+	bra		UART.printString
 
 
 
