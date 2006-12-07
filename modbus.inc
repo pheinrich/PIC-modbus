@@ -75,7 +75,7 @@ kDiag_Busy        equ   5
 ; However, since we convert ASCII messages into RTU mode for processing any-
 ; way, we don't actually need separate buffers.  We do a reverse conversion
 ; just before transmission, back into the receive buffer.
-kLogBuffer     equ   0x0040
+kLogBuffer     equ   0x0060
 kLogBufLen     equ   0x0040
 
 kRxBuffer      equ   kLogBuffer + kLogBufLen
