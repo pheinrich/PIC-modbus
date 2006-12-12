@@ -3,6 +3,7 @@
 	<name>modbus</name>
 	<comment></comment>
 	<projects>
+		<project>ifos</project>
 	</projects>
 	<buildSpec>
 		<buildCommand>
