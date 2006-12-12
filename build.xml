@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project name="modbus" default="build" basedir=".">
+	<target name="build" depends="assemble, lib"/>
+
+	<target name="assemble">
+		<apply executable="mpasmwin" parallel="false">
+			<arg value="/e-"/>
+			<arg value="/l-"/>
+			<arg value="/o"/>
+			<arg value="/q"/>
+			<srcfile/>
+			<fileset dir="." includes="*.asm"/>
+			<mapper type="glob" from="*.asm" to="*.o"/>
+		</apply>
+	</target>
+
+	<target name="lib">
+		<exec executable="mplib">
+			<arg value="/c"/>
+			<arg value="modbus.lib"/>
+			<arg value="*.O"/>
+		</exec>
+	</target>
+</project>
