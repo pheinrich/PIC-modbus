@@ -16,14 +16,14 @@
 
 
 ; Everyone should agree on the CPU clock speed.
-kFrequency  equ   20000000    ; 20 MHz
+kFrequency  equ   24000000    ; 24 MHz
 
 ; Enumerate the baud rates we support.  Trick: each value is a valid Baud Rate
 ; Generator (BRG) for the clock speed, above.
-kBaud_9600   equ  (kFrequency / (  9600 << 4)) - 1    ; 129 (0x81) @ 20 MHz
-kBaud_19200  equ  (kFrequency / ( 19200 << 4)) - 1    ; 64 (0x40) @ 20 MHz
-kBaud_57600  equ  (kFrequency / ( 57600 << 4)) - 1    ; 20 (0x14) @ 20 MHz
-kBaud_115200 equ  (kFrequency / (115200 << 4)) - 1    ; 9 (0x9) @ 20 MHz
+kBaud_9600   equ  (kFrequency / (  9600 << 4)) - 1    ; 155 (0x9b) @ 24 MHz
+kBaud_19200  equ  (kFrequency / ( 19200 << 4)) - 1    ; 77 (0x4d) @ 24 MHz
+kBaud_57600  equ  (kFrequency / ( 57600 << 4)) - 1    ; 25 (0x19) @ 24 MHz
+kBaud_115200 equ  (kFrequency / (115200 << 4)) - 1    ; 12 (0xc) @ 24 MHz
 
 ; Enumerate the error checking methods we support.
 kParity_Even equ  0

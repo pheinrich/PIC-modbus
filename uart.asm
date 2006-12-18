@@ -60,6 +60,10 @@ UART.LastParity         res   1
 ;;  and transmission.
 ;;
 UART.init:
+   ; Set the I/O direction for the RX and TX pins.
+   bcf      TRISC, RC6        ; RC6/TX/CK will be an output
+   bsf      TRISC, RC7        ; RC7/RX/DT will be an input
+
    ; Specify the baud rate.
    movff    MODBUS.BaudRate, SPBRG
 
@@ -85,9 +89,10 @@ UART.init:
             ; -----XXX        ; [read-only status/data bits]
    movwf    RCSTA
 
-   ; Set the I/O direction for the RX and TX pins.
-   bcf      TRISC, RC6        ; RC6/TX/CK will be an output
-   bsf      TRISC, RC7        ; RC7/RX/DT will be an input
+   ; Flush the buffer.
+   clrf     RCREG
+   clrf     RCREG
+   clrf     RCREG
 
    ; Test our 9-bit character assumption.
    movf     MODBUS.Mode
