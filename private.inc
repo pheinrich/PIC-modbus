@@ -1,8 +1,8 @@
 ;; ---------------------------------------------------------------------------
 ;;
-;;  MODBUS
+;;  Modbus
 ;;
-;;  Copyright © 2006  Peter Heinrich
+;;  Copyright © 2006,7  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -20,4 +20,6 @@
    list b=3
 
    #include <p18f242.inc>
+   #include "..\framework\macros.inc"
+   #include "..\framework\framework.inc"
    #include "modbus.inc"
