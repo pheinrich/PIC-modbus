@@ -1,8 +1,8 @@
 ;; ---------------------------------------------------------------------------
 ;;
-;;  MODBUS
+;;  Modbus
 ;;
-;;  Copyright © 2006  Peter Heinrich
+;;  Copyright © 2006,7  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -17,28 +17,20 @@
 
    #include "private.inc"
 
-   ; Variables
-   extern   MODBUS.Mode
-
    ; Methods
-   extern   ASCII.timeout
-   extern   RTU.timeout
-   extern   UART.rxCharacter
-   extern   UART.txCharacter
-
    global   ISR.modbus
    
 
 
 ;; ---------------------------------------------------------------------------
-.isr        code
+.isr                    code
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
 ;;  void ISR.modbus()
 ;;
 ISR.modbus:
-   ; Determine if the UART is responsible for this interrupt.
+   ; Determine if the USART is responsible for this interrupt.
    btfss    PIE1, RCIE        ; are character reception interrupts enabled?
      bra    checkTx           ; no, check for transmitted characters
    btfsc    PIR1, RCIF        ; yes, was a character received?

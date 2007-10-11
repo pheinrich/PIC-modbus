@@ -86,23 +86,36 @@ getByte:
 
 
 ;; ----------------------------------------------
-;;  void Modbus.init()
+;;  void Modbus.init( bool ascii, enum baud, enum parity )
 ;;
-;;  Initializes the device before falling through to the main event loop.
-;;  This routine calls other methods to handle specific peripherals.
+;;  Initializes a state machine appropriate to the operating mode specified,
+;;  then resets the diagnostic registers and clears the event log.  Finally,
+;;  the hardware USART is initialized with baud rate and software parity
+;;  requested.
 ;;
 Modbus.init:
    extern   ASCII.init
    extern   Diag.init
    extern   RTU.init
+   extern   USART.init
+   extern   Util.Frame
 
-   ; Some components of the system must be initialized.
+   ; The operating mode determines which state machine will be active.
+   movf     Util.Frame           ; are we in ASCII (7-bit) mode?
+   bz       initRTU              ; no, initialize RTU mode
+   call     ASCII.init           ; yes, initialize ASCII mode
+   bra      initDiag
+
+initRTU:
+   call     RTU.init
+
+initDiag:
+   ; Save the hardware set-up for last, since the state machine initialization
+   ; above needs to hook the rx/tx events first.  Note that the stackframe must
+   ; be preserved until the then, since it holds the USART initialization para-
+   ; meters.
    call     Diag.init            ; reset diagnostic registers and event log
-
-   ; Initialize the correct mode according to the configuration.
-   btfss    RXSTA, RX9           ; are we in RTU (8-bit char) mode?
-     goto   ASCII.init           ; no, initialize ASCII mode
-   goto     RTU.init             ; yes, initialize RTU mode
+   goto     USART.init           ; initialize the serial port
 
 
 
@@ -170,7 +183,7 @@ copyIt:                          ; debug
 
 
 ;; ----------------------------------------------
-;;  woid Modbus.resetFrame( char* buffer )
+;;  void Modbus.resetFrame( char buffer[] )
 ;;
 ;;  Initializes the message frame for fresh reception or transmission.  This
 ;;  method stashes the base pointer for later use by related routines.

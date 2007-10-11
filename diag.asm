@@ -34,15 +34,15 @@
 ;; ---------------------------------------------------------------------------
 
 Diag.ExceptStatus       res   1
-Diag.NumEvents          res   2     ; not cleared on comm restart
+Diag.NumEvents          res   2  ; not cleared on comm restart
 Diag.Options            res   1
-                        ; 1------   ; return query data
-                        ; -1-----   ; listen-only mode
-                        ; --1----   ; busy
-                        ; ---XXXX   ; reserved
+                        ; 1-------  return query data
+                        ; -1------  listen-only mode
+                        ; --1-----  busy
+                        ; ---XXXXX  reserved
 
-Diag.LogHead            res   1     ; pointer to the oldest event
-Diag.LogTail            res   1     ; pointer to most recent event
+Diag.LogHead            res   1  ; pointer to the oldest event
+Diag.LogTail            res   1  ; pointer to most recent event
 
 Diag.NumCommErrs        res   2
 Diag.NumExceptErrs      res   2
