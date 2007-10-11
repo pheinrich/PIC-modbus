@@ -1,8 +1,8 @@
 ;; ---------------------------------------------------------------------------
 ;;
-;;  MODBUS
+;;  Modbus
 ;;
-;;  Copyright © 2006  Peter Heinrich
+;;  Copyright © 2006,7  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -18,57 +18,55 @@
    #include "private.inc"
 
    ; Variables
-   extern   MODBUS.Event
-
-   global   DIAG.Options
+   global   Diag.Options
 
    ; Methods
-   global   DIAG.init
-   global   DIAG.logListenOnly
-   global   DIAG.logRestart
-   global   DIAG.logRxEvt
-   global   DIAG.logTxEvt
+   global   Diag.init
+   global   Diag.logListenOnly
+   global   Diag.logRestart
+   global   Diag.logRxEvt
+   global   Diag.logTxEvt
 
 
 
 ;; ---------------------------------------------------------------------------
-            udata_acs
+                        udata_acs
 ;; ---------------------------------------------------------------------------
 
-DIAG.ExceptStatus    res   1
-DIAG.NumEvents       res   2     ; not cleared on comm restart
-DIAG.Options         res   1
-                     ; 1------   ; return query data
-                     ; -1-----   ; listen-only mode
-                     ; --1----   ; busy
-                     ; ---XXXX   ; reserved
+Diag.ExceptStatus       res   1
+Diag.NumEvents          res   2     ; not cleared on comm restart
+Diag.Options            res   1
+                        ; 1------   ; return query data
+                        ; -1-----   ; listen-only mode
+                        ; --1----   ; busy
+                        ; ---XXXX   ; reserved
 
-DIAG.LogHead         res   1     ; pointer to the oldest event
-DIAG.LogTail         res   1     ; pointer to most recent event
+Diag.LogHead            res   1     ; pointer to the oldest event
+Diag.LogTail            res   1     ; pointer to most recent event
 
-DIAG.NumCommErrs     res   2
-DIAG.NumExceptErrs   res   2
-DIAG.NumMsgs         res   2
-DIAG.NumNoResponse   res   2
-DIAG.NumOverruns     res   2
-DIAG.NumSlaveBusy    res   2
-DIAG.NumSlaveMsgs    res   2
-DIAG.NumSlaveNAKs    res   2
-DIAG.Register        res   2
+Diag.NumCommErrs        res   2
+Diag.NumExceptErrs      res   2
+Diag.NumMsgs            res   2
+Diag.NumNoResponse      res   2
+Diag.NumOverruns        res   2
+Diag.NumSlaveBusy       res   2
+Diag.NumSlaveMsgs       res   2
+Diag.NumSlaveNAKs       res   2
+Diag.Register           res   2
 
 
 
 ;; ---------------------------------------------------------------------------
-.diag       code
+.diag                   code
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
-;;  void DIAG.init()
+;;  void Diag.init()
 ;;
-DIAG.init:
+Diag.init:
    ; Point to our block of local variables, with total byte length in W.
-   lfsr     FSR0, DIAG.ExceptStatus
-   movlw    DIAG.Register - DIAG.ExceptStatus + 2
+   lfsr     FSR0, Diag.ExceptStatus
+   movlw    Diag.Register - Diag.ExceptStatus + 2
 
    ; Clear the block.
    clrf     POSTINC0
@@ -80,25 +78,25 @@ DIAG.init:
 
 
 ;; ----------------------------------------------
-;;  void DIAG.logListenOnly()
+;;  void Diag.logListenOnly()
 ;;
-DIAG.logListenOnly:
-   movlw    kCmdEvt_ListenOnly
-   bra      DIAG.storeLogByte
+Diag.logListenOnly:
+   movlw    Modbus.kCmdEvt_ListenOnly
+   bra      Diag.storeLogByte
 
 
 
 ;; ----------------------------------------------
-;;  void DIAG.logRestart()
+;;  void Diag.logRestart()
 ;;
-DIAG.logRestart:
-   movlw    kCmdEvt_Restart
-   bra      DIAG.storeLogByte
+Diag.logRestart:
+   movlw    Modbus.kCmdEvt_Restart
+   bra      Diag.storeLogByte
 
 
 
 ;; ----------------------------------------------
-;;  void DIAG.logRxEvt()
+;;  void Diag.logRxEvt()
 ;;
 ;;  Adds an entry to the event log corresponding to a receive event.  The
 ;;  entry is an 8-bit bitfield:
@@ -111,50 +109,52 @@ DIAG.logRestart:
 ;;    ------1-    ; communication error (bad checksum)
 ;;    -------X    ; not used
 ;;
-DIAG.logRxEvt:
+Diag.logRxEvt:
+   extern   Modbus.Event
+
    ; Count every message we see on the bus, even if it's not addressed to us.
-   INCREG   DIAG.NumMsgs
+   IncrementWord Diag.NumMsgs
 
    ; Count checksum failures.
-   btfss    MODBUS.Event, kRxEvt_CommErr
+   btfss    Modbus.Event, Modbus.kRxEvt_CommErr
      bra    rxSlave
-   INCREG   DIAG.NumCommErrs
+   IncrementWord Diag.NumCommErrs
 
 rxSlave:
    ; Count messages this device has processed, which means all broadcast messages
    ; and messages addressed to it specifically.
-   btfss    MODBUS.Event, kRxEvt_SlaveMsg
+   btfss    Modbus.Event, Modbus.kRxEvt_SlaveMsg
      bra    rxNoResponse
-   INCREG   DIAG.NumSlaveMsgs
-   bcf      MODBUS.Event, kRxEvt_SlaveMsg
+   IncrementWord Diag.NumSlaveMsgs
+   bcf      Modbus.Event, Modbus.kRxEvt_SlaveMsg
 
 rxNoResponse:
    ; Count the messages for which this device returned no response, either normal
    ; or exception.
-   btfss    MODBUS.Event, kRxEvt_NoResponse
+   btfss    Modbus.Event, Modbus.kRxEvt_NoResponse
      bra    rxOverrun
-   INCREG   DIAG.NumNoResponse
-   bcf      MODBUS.Event, kRxEvt_NoResponse
+   IncrementWord Diag.NumNoResponse
+   bcf      Modbus.Event, Modbus.kRxEvt_NoResponse
 
 rxOverrun:
    ; Count buffer overruns.  This will also include framing errors.
-   btfss    MODBUS.Event, kRxEvt_Overrun
+   btfss    Modbus.Event, Modbus.kRxEvt_Overrun
      bra    rxWrite
-   INCREG   DIAG.NumOverruns
+   INCREG   Diag.NumOverruns
 
 rxWrite:
    ; Set the event type and copy the state of the listen-only mode indicator bit.
-   bsf      MODBUS.Event, 7
-   btfsc    DIAG.Options, kDiag_ListenOnly
-     bsf    MODBUS.Event, kRxEvt_ListenOnly
+   bsf      Modbus.Event, 7
+   btfsc    Diag.Options, Modbus.kDiag_ListenOnly
+     bsf    Modbus.Event, Modbus.kRxEvt_ListenOnly
 
    ; Store the event byte in the log.
-   bra      DIAG.storeLogByte
+   bra      Diag.storeLogByte
 
 
 
 ;; ----------------------------------------------
-;;  void DIAG.logTxEvt()
+;;  void Diag.logTxEvt()
 ;;
 ;;  Adds an entry to the event log corresponding to a transmit event.  The
 ;;  entry is an 8-bit bitfield:
@@ -167,72 +167,76 @@ rxWrite:
 ;;    ------1-    ; slave abort exception sent (exception code 4)
 ;;    -------1    ; read exception sent (exception codes 1-3)
 ;;
-DIAG.logTxEvt:
+Diag.logTxEvt:
+   extern   Modbus.Event
+
    ; Count all exception responses transmitted by this device.
-   movlw    (1 << kTxEvt_ReadEx) | (1 << kTxEvt_AbortEx) | (1 << kTxEvt_BusyEx) | (1 << kTxEvt_NAKEx)
-   andwf    MODBUS.Event, W
+   movlw    (1 << Modbus.kTxEvt_ReadEx) | (1 << Modbus.kTxEvt_AbortEx) | (1 << Modbus.kTxEvt_BusyEx) | (1 << Modbus.kTxEvt_NAKEx)
+   andwf    Modbus.Event, W
    bz       txBusy
-   INCREG   DIAG.NumExceptErrs
+   IncrementWord Diag.NumExceptErrs
 
 txBusy:
    ; Count the messages for which this device returned a "slave busy" exception.
-   btfss    MODBUS.Event, kTxEvt_BusyEx
+   btfss    Modbus.Event, Modbus.kTxEvt_BusyEx
      bra    txNAK
-   INCREG   DIAG.NumSlaveBusy
+   IncrementWord Diag.NumSlaveBusy
 
 txNAK:
    ; Count the messages for which this device returned a negative acknowledgement
    ; exception.  This seems pathological, since this exception (7) isn't even
    ; documented in the Modbus Application Protocol V1.1a document and it's unclear
    ; how or when a NAK is generated.
-   btfss    MODBUS.Event, kTxEvt_NAKEx
+   btfss    Modbus.Event, Modbus.kTxEvt_NAKEx
      bra    txWrite
-   INCREG   DIAG.NumSlaveNAKs
+   IncrementWord Diag.NumSlaveNAKs
 
 txWrite:
    ; Set the event type and copy the state of the listen-only mode indicator bit.
    bcf      MODBUS.Event, 7
    bsf      MODBUS.Event, 6
-   btfsc    DIAG.Options, kDiag_ListenOnly
-     bsf    MODBUS.Event, kTxEvt_ListenOnly
+   btfsc    Diag.Options, Modbus.kDiag_ListenOnly
+     bsf    Modbus.Event, Modbus.kTxEvt_ListenOnly
 
    ; Store the event byte in the log.
-   bra      DIAG.storeLogByte
+   bra      Diag.storeLogByte
 
 
 
 ;; ----------------------------------------------
-;;  void DIAG.storeLogByte( byte evt )
+;;  void Diag.storeLogByte( byte evt )
 ;;
 ;;  Stores the byte specified in the circular log buffer at the current tail
 ;;  pointer.  The pointer is advanced, but never more than the maximum buffer
 ;;  length, 64 (the head pointer may move to compensate).
 ;;
-DIAG.storeLogByte:
+Diag.storeLogByte:
+   extern   Modbus.Event
+
    ; Keep track of overall event count, even across comm restarts.
-   INCREG   DIAG.NumEvents
+   IncrementWord Diag.NumEvents
 
    ; Store the event byte at the tail of the buffer.
-   lfsr     FSR0, kLogBuffer
-   movf     DIAG.LogTail, W
-   movff    MODBUS.Event, PLUSW0
+   lfsr     FSR0, Modbus.kLogBuffer
+   movf     Diag.LogTail, W
+   movff    Modbus.Event, PLUSW0
 
    ; Increment the tail pointer, making sure it never exceeds the maximum buffer
    ; length of 64.
-   incf     DIAG.LogTail      ; add 1 to the tail pointer
-   movlw    kLogBufLen
-   cpfslt   DIAG.LogTail      ; is the new tail >= max buffer length?
-     clrf   DIAG.LogTail      ; yes, reset to 0
+   incf     Diag.LogTail         ; add 1 to the tail pointer
+   movlw    Modbus.kLogBufLen
+   cpfslt   Diag.LogTail         ; is the new tail >= max buffer length?
+     clrf   Diag.LogTail         ; yes, reset to 0
 
    ; The head pointer may need to be adjusted as well.
-   movf     DIAG.LogHead, W
-   cpfseq   DIAG.LogTail      ; are the head and tail pointers equal?
-     return                   ; no, we're done
+   movf     Diag.LogHead, W
+   cpfseq   Diag.LogTail         ; are the head and tail pointers equal?
+     return                      ; no, we're done
 
-   incf     DIAG.LogHead      ; yes, add 1 to the head pointer, too
-   movlw    kLogBufLen
-   cpfslt   DIAG.LogHead      ; is the new head >= max buffer length?
-     clrf   DIAG.LogHead      ; yes, reset to 0
+   incf     Diag.LogHead         ; yes, add 1 to the head pointer, too
+   movlw    Modbus.kLogBufLen
+   cpfslt   Diag.LogHead         ; is the new head >= max buffer length?
+     clrf   Diag.LogHead         ; yes, reset to 0
 
    return
 

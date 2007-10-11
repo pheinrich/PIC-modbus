@@ -95,13 +95,12 @@ Modbus.init:
    extern   ASCII.init
    extern   Diag.init
    extern   RTU.init
-   extern   USART.Mode
 
    ; Some components of the system must be initialized.
    call     Diag.init            ; reset diagnostic registers and event log
 
    ; Initialize the correct mode according to the configuration.
-   tstfsz   USART.Mode           ; are we in RTU (8-bit char) mode?
+   btfss    RXSTA, RX9           ; are we in RTU (8-bit char) mode?
      goto   ASCII.init           ; no, initialize ASCII mode
    goto     RTU.init             ; yes, initialize RTU mode
 
