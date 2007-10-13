@@ -22,9 +22,9 @@
 
    ; Methods
    global   ASCII.init
-   global   ASCII.rxCharacter
-   global   ASCII.timeout
-   global   ASCII.txCharacter
+   global   ASCII.isrRx
+   global   ASCII.isrTimeout
+   global   ASCII.isrTx
 
 
 
@@ -81,105 +81,6 @@ ASCII.Timeouts          res   1  ; supports extra long (>1s) delays
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
-;;  void ASCII.ascii2rtu()
-;;
-;;  Converts the message in the Modbus.kASCIIBuffer to binary (RTU) format in
-;;  the Modbus.kRxBuffer.  Each original character contributes one nybble, so
-;;  the result is 50% smaller.  The main advantage, however, is being able to
-;;  share common code to verify address, validate checksum, and parse ASCII and
-;;  RTU messages.
-;;
-;;  This method expects FSR1 to point one past the end of the message buffer,
-;;  including the last two checksum characters (which we want to convert as
-;;  much the message).
-;;
-ASCII.ascii2rtu:
-   extern   Modbus.MsgTail
-   extern   Util.Volatile
-   extern   Util.char2hex
-
-   ; Initialize some pointers.
-   lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = message head (ASCII)
-   lfsr     FSR2, Modbus.kRxBuffer ; FSR2 = message tail (RTU)
-
-a2rLoop:
-   ; Compare the head and tail pointers.
-   movf     FSR0L, W
-   cpfseq   FSR1L                ; are low bytes equal?
-     bra    a2rUpdate            ; no, keep going
-
-   movf     FSR0H, W
-   cpfseq   FSR1H                ; are high bytes equal?
-     bra    a2rUpdate            ; no, keep going
-
-   ; The head and tail pointers are equal, so we're done.  The last thing we do is
-   ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
-   ; like a 16-bit little-endian word to mimic the CRC16 used in RTU mode.
-   clrf     POSTDEC2
-   CopyWord FSR2L, Modbus.MsgTail
-   return
-
-a2rUpdate:
-   ; Read the next two characters and combine them into a single byte.
-   movf     POSTINC0, W          ; read the first character
-   rcall    Util.char2Hex        ; convert to nybble
-   swapf    WREG
-   movwf    Util.Volatile
-
-   movf     POSTINC0, W          ; read the second character
-   rcall    Util.char2Hex        ; convert to nybble
-   iorwf    Util.Volatile, W
-
-   ; Store the byte back into buffer.  We'll never catch up to our read pointer
-   ; since it's moving twice as fast.
-   movwf    POSTINC2
-   bra      a2rLoop              ; go back for the next pair
-
-
-
-;; ----------------------------------------------
-;;  void ASCII.calcLRC( const char buffer[] )
-;;
-;;  Calculates the Longitudinal Redundancy Checksum on the ASCII characters in
-;;  the message buffer, not including the checksum at the end (inserted by the
-;;  sender).  The LRC is a simple sum, discarding all carries, which is then
-;;  2s-complemented.  It's an 8-bit value, so the upper byte of the checksum is
-;;  set to 0.
-;;
-;;  This code expects Modbus.MsgTail to point to one past the last character
-;;  to be included in the checksum.
-;;
-ASCII.calcLRC:
-   extern   Modbus.Checksum
-   extern   Modbus.MsgTail
-
-   ; Initialize the checksum and a pointer to the message buffer.
-   clrf     Modbus.Checksum      ; LRC starts at 0
-   clrf     Modbus.Checksum + 1
-
-lrcLoop:
-   ; Compare the head and tail pointers.
-   movf     FSR0L, W
-   cpfseq   Modbus.MsgTail       ; are low bytes equal?
-     bra    lrcUpdate            ; no, keep going
-
-   movf     FSR0H, W
-   cpfseq   Modbus.MsgTail + 1   ; are high bytes equal?
-     bra    lrcUpdate            ; no, keep going
-
-   ; The head and tail pointers are equal, so we're done.
-   negf     Modbus.Checksum      ; LRC is 2s complement of actual sum
-   return
-
-lrcUpdate:
-   ; Update the checksum with the current character.
-   movf     POSTINC0, W          ; read the charecter at head
-   addwf    Modbus.Checksum      ; add to sum, discarding carry
-   bra      lrcLoop              ; go back for the next one
-
-
-
-;; ----------------------------------------------
 ;;  void ASCII.init()
 ;;
 ;;  Initializes the ASCII mode state machine and some associated variables.
@@ -199,57 +100,13 @@ ASCII.init:
 
 
 ;; ----------------------------------------------
-;;  void ASCII.rtu2ascii()
-;;
-;;  Converts a message in the Modbus.kTxBuffer (RTU mode) to its ASCII repre-
-;;  sentation in kASCIIBuffer.  This method assumes Modbus.MsgTail points one
-;;  past the last message byte, not including the checksum.
-;;
-ASCII.rtu2ascii:
-   extern   Modbus.MsgTail
-   extern   Util.hex2char
-
-   ; Initialize some pointers.
-   lfsr     FSR0, Modbus.kTxBuffer ; FSR0 = message head (RTU)
-   lfsr     FSR2, Modbus.kASCIIBuffer ; FSR2 = message tail (ASCII)
-
-r2aLoop:
-   ; Compare the head and tail pointers.
-   movf     FSR0L, W
-   cpfseq   Modbus.MsgTail       ; are low bytes equal?
-     bra    r2aUpdate            ; no, keep going
-
-   movf     FSR0H, W
-   cpfseq   Modbus.MsgTail + 1   ; are high bytes equal?
-     bra    r2aUpdate            ; no, keep going
-
-   ; The head and tail pointers are equal, so we're done.
-   CopyWord FSR2L, Modbus.MsgTail
-   return
-
-r2aUpdate:
-   ; Convert the high nybble of the next byte to an ASCII character.
-   movf     INDF0, W             ; read the byte, but don't advance the pointer
-   swapf    WREG                 ; process the high nybble first
-   rcall    Util.hex2char
-   movwf    POSTINC2             ; store it in the kASCIIBuffer
-
-   ; Convert the low nybble of the same byte.
-   movf     POSTINC0, W          ; re-read the byte and advance this time
-   rcall    Util.hex2char
-   movwf    POSTINC2             ; store it
-   bra      r2aLoop              ; go back for the next byte
-
-
-
-;; ----------------------------------------------
-;;  void ASCII.rxCharacter()
+;;  void ASCII.isrRx()
 ;;
 ;;  Updates the state machine in response to a received character.  This may
 ;;  involve changing modes, resetting the message buffer, or storing a message
 ;;  byte.
 ;;
-ASCII.rxCharacter:
+ASCII.isrRx:
    extern   Diag.logRxEvt
    extern   Modbus.Event
    extern   Modbus.resetFrame
@@ -343,8 +200,8 @@ rxWaiting:
    ; to the equivalent binary (RTU) format.  Once that's done, we can use common
    ; code to validate the address, verify the checksum, and parse the contents.
    lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = message head
-   rcall    ASCII.calcLRC
-   rcall    ASCII.ascii2rtu
+   rcall    calcLRC
+   rcall    ascii2rtu
 
    call     Modbus.validateMsg
    tstfsz   WREG                 ; was the validation successful?
@@ -366,14 +223,14 @@ rxDone:
    
 
 ;; ----------------------------------------------
-;;  void ASCII.timeout()
+;;  void ASCII.isrTimeout()
 ;;
 ;;  Updates the state machine in response to a timer overflow.  The timer is
 ;;  started whenever a character is received, and overflows approximately 92
 ;;  times a second.  A one second delay between characters indicates a problem
 ;;  with the frame, which this method flags, if detected.
 ;;
-ASCII.timeout:
+ASCII.isrTimeout:
    extern   Modbus.Event
    extern   Modbus.State
 
@@ -400,9 +257,9 @@ timeoutUpdate:
 
 
 ;; ----------------------------------------------
-;;  void ASCII.txCharacter()
+;;  void ASCII.isrTx()
 ;;
-ASCII.txCharacter:
+ASCII.isrTx:
    extern   Diag.logTxEvt
    extern   Modbus.Checksum
    extern   Modbus.getFrameByte
@@ -418,18 +275,18 @@ ASCII.txCharacter:
 
    ; Emit Start State:  a message reply we want to send is waiting in kASCIIBuffer,
    ; but we must calculate its checksum before we can transmit it.
-   rcall    ASCII.rtu2ascii      ; convert to ASCII mode first
+   rcall    rtu2ascii      ; convert to ASCII mode first
    lfsr     FSR0, Modbus.kASCIIBuffer
-   rcall    ASCII.calcLRC        ; calculate the checksum
+   rcall    calcLRC        ; calculate the checksum
 
    ; Store the checksum at the end of the message buffer and update the tail.
    movf     Modbus.Checksum, W
    swapf    WREG
-   rcall    Util.hex2char
+   call     Util.hex2char
    movwf    POSTINC0
 
    movf     Modbus.Checksum, W
-   rcall    Util.hex2char
+   call     Util.hex2char
    movwf    POSTINC0
    CopyWord FSR0L, Modbus.MsgTail
 
@@ -484,6 +341,149 @@ txEmitDone:
    movwf    Modbus.State
    bcf      PIE1, TXIE
    goto     Diag.logTxEvt
+
+
+
+;; ----------------------------------------------
+;;  void ascii2rtu()
+;;
+;;  Converts the message in the Modbus.kASCIIBuffer to binary (RTU) format in
+;;  the Modbus.kRxBuffer.  Each original character contributes one nybble, so
+;;  the result is 50% smaller.  The main advantage, however, is being able to
+;;  share common code to verify address, validate checksum, and parse ASCII and
+;;  RTU messages.
+;;
+;;  This method expects FSR1 to point one past the end of the message buffer,
+;;  including the last two checksum characters (which we want to convert as
+;;  much the message).
+;;
+ascii2rtu:
+   extern   Modbus.MsgTail
+   extern   Util.Volatile
+   extern   Util.char2hex
+
+   ; Initialize some pointers.
+   lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = message head (ASCII)
+   lfsr     FSR2, Modbus.kRxBuffer ; FSR2 = message tail (RTU)
+
+a2rLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   FSR1L                ; are low bytes equal?
+     bra    a2rUpdate            ; no, keep going
+
+   movf     FSR0H, W
+   cpfseq   FSR1H                ; are high bytes equal?
+     bra    a2rUpdate            ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.  The last thing we do is
+   ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
+   ; like a 16-bit little-endian word to mimic the CRC16 used in RTU mode.
+   clrf     POSTDEC2
+   CopyWord FSR2L, Modbus.MsgTail
+   return
+
+a2rUpdate:
+   ; Read the next two characters and combine them into a single byte.
+   movf     POSTINC0, W          ; read the first character
+   call     Util.char2Hex        ; convert to nybble
+   swapf    WREG
+   movwf    Util.Volatile
+
+   movf     POSTINC0, W          ; read the second character
+   call     Util.char2Hex        ; convert to nybble
+   iorwf    Util.Volatile, W
+
+   ; Store the byte back into buffer.  We'll never catch up to our read pointer
+   ; since it's moving twice as fast.
+   movwf    POSTINC2
+   bra      a2rLoop              ; go back for the next pair
+
+
+
+;; ----------------------------------------------
+;;  void calcLRC( const char buffer[] )
+;;
+;;  Calculates the Longitudinal Redundancy Checksum on the ASCII characters in
+;;  the message buffer, not including the checksum at the end (inserted by the
+;;  sender).  The LRC is a simple sum, discarding all carries, which is then
+;;  2s-complemented.  It's an 8-bit value, so the upper byte of the checksum is
+;;  set to 0.
+;;
+;;  This code expects Modbus.MsgTail to point to one past the last character
+;;  to be included in the checksum.
+;;
+calcLRC:
+   extern   Modbus.Checksum
+   extern   Modbus.MsgTail
+
+   ; Initialize the checksum and a pointer to the message buffer.
+   clrf     Modbus.Checksum      ; LRC starts at 0
+   clrf     Modbus.Checksum + 1
+
+lrcLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   Modbus.MsgTail       ; are low bytes equal?
+     bra    lrcUpdate            ; no, keep going
+
+   movf     FSR0H, W
+   cpfseq   Modbus.MsgTail + 1   ; are high bytes equal?
+     bra    lrcUpdate            ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.
+   negf     Modbus.Checksum      ; LRC is 2s complement of actual sum
+   return
+
+lrcUpdate:
+   ; Update the checksum with the current character.
+   movf     POSTINC0, W          ; read the charecter at head
+   addwf    Modbus.Checksum      ; add to sum, discarding carry
+   bra      lrcLoop              ; go back for the next one
+
+
+
+;; ----------------------------------------------
+;;  void rtu2ascii()
+;;
+;;  Converts a message in the Modbus.kTxBuffer (RTU mode) to its ASCII repre-
+;;  sentation in kASCIIBuffer.  This method assumes Modbus.MsgTail points one
+;;  past the last message byte, not including the checksum.
+;;
+rtu2ascii:
+   extern   Modbus.MsgTail
+   extern   Util.hex2char
+
+   ; Initialize some pointers.
+   lfsr     FSR0, Modbus.kTxBuffer ; FSR0 = message head (RTU)
+   lfsr     FSR2, Modbus.kASCIIBuffer ; FSR2 = message tail (ASCII)
+
+r2aLoop:
+   ; Compare the head and tail pointers.
+   movf     FSR0L, W
+   cpfseq   Modbus.MsgTail       ; are low bytes equal?
+     bra    r2aUpdate            ; no, keep going
+
+   movf     FSR0H, W
+   cpfseq   Modbus.MsgTail + 1   ; are high bytes equal?
+     bra    r2aUpdate            ; no, keep going
+
+   ; The head and tail pointers are equal, so we're done.
+   CopyWord FSR2L, Modbus.MsgTail
+   return
+
+r2aUpdate:
+   ; Convert the high nybble of the next byte to an ASCII character.
+   movf     INDF0, W             ; read the byte, but don't advance the pointer
+   swapf    WREG                 ; process the high nybble first
+   call     Util.hex2char
+   movwf    POSTINC2             ; store it in the kASCIIBuffer
+
+   ; Convert the low nybble of the same byte.
+   movf     POSTINC0, W          ; re-read the byte and advance this time
+   call     Util.hex2char
+   movwf    POSTINC2             ; store it
+   bra      r2aLoop              ; go back for the next byte
 
 
 

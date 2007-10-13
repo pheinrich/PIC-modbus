@@ -29,6 +29,7 @@
    ; Methods
    global   Modbus.getFrameByte
    global   Modbus.init
+   global   Modbus.isr
    global   Modbus.putFrameByte
    global   Modbus.replyMsg
    global   Modbus.resetFrame
@@ -116,6 +117,34 @@ initDiag:
    ; meters.
    call     Diag.init            ; reset diagnostic registers and event log
    goto     USART.init           ; initialize the serial port
+
+
+
+;; ----------------------------------------------
+;;  void Modbus.isr()
+;;
+Modbus.isr:
+   extern   ASCII.isrTimeout
+   extern   RTU.isrTimeout
+   extern   USART.isr
+
+   ; Service the serial hardware.  We have already hooked its transmit and re-
+   ; ceive interrupt methods, which ensures the correct state machine will get a
+   ; chance to process those events.
+   call     USART.isr
+   
+   ; Determine if our timer overflowed.
+   btfss    PIE1, TMR1IE      ; are timer1 interrupts enabled?
+     return                   ; no, we can exit
+   btfss    PIR1, TMR1IF      ; yes, has timer1 expired?
+     return                   ; no, we're done
+
+   ; A timer1 event did occur.  We must delegate this event ourselves, since the
+   ; USART isn't interested in it and doesn't provide a convenient hook.
+   bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
+   btfss    RXSTA, RX9        ; are we in RTU (8-bit) mode?
+     goto   ASCII.isrTimeout  ; no, the ASCII (7-bit) state machine takes over
+   goto     RTU.isrTimeout    ; yes, the RTU state machine takes over
 
 
 
