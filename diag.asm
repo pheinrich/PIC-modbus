@@ -140,7 +140,7 @@ rxOverrun:
    ; Count buffer overruns.  This will also include framing errors.
    btfss    Modbus.Event, Modbus.kRxEvt_Overrun
      bra    rxWrite
-   INCREG   Diag.NumOverruns
+   IncrementWord Diag.NumOverruns
 
 rxWrite:
    ; Set the event type and copy the state of the listen-only mode indicator bit.
@@ -193,8 +193,8 @@ txNAK:
 
 txWrite:
    ; Set the event type and copy the state of the listen-only mode indicator bit.
-   bcf      MODBUS.Event, 7
-   bsf      MODBUS.Event, 6
+   bcf      Modbus.Event, 7
+   bsf      Modbus.Event, 6
    btfsc    Diag.Options, Modbus.kDiag_ListenOnly
      bsf    Modbus.Event, Modbus.kTxEvt_ListenOnly
 

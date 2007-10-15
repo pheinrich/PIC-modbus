@@ -109,6 +109,7 @@ ASCII.init:
 ASCII.isrRx:
    extern   Diag.logRxEvt
    extern   Modbus.Event
+   extern   Modbus.putFrameByte
    extern   Modbus.resetFrame
    extern   Modbus.State
    extern   Modbus.MsgTail
@@ -386,12 +387,12 @@ a2rLoop:
 a2rUpdate:
    ; Read the next two characters and combine them into a single byte.
    movf     POSTINC0, W          ; read the first character
-   call     Util.char2Hex        ; convert to nybble
+   call     Util.char2hex        ; convert to nybble
    swapf    WREG
    movwf    Util.Volatile
 
    movf     POSTINC0, W          ; read the second character
-   call     Util.char2Hex        ; convert to nybble
+   call     Util.char2hex        ; convert to nybble
    iorwf    Util.Volatile, W
 
    ; Store the byte back into buffer.  We'll never catch up to our read pointer

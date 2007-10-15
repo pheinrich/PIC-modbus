@@ -142,7 +142,7 @@ Modbus.isr:
    ; A timer1 event did occur.  We must delegate this event ourselves, since the
    ; USART isn't interested in it and doesn't provide a convenient hook.
    bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
-   btfss    RXSTA, RX9        ; are we in RTU (8-bit) mode?
+   btfss    RCSTA, RX9        ; are we in RTU (8-bit) mode?
      goto   ASCII.isrTimeout  ; no, the ASCII (7-bit) state machine takes over
    goto     RTU.isrTimeout    ; yes, the RTU state machine takes over
 
