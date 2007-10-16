@@ -87,6 +87,8 @@ ASCII.Timeouts          res   1  ; supports extra long (>1s) delays
 ;;
 ASCII.init:
    extern   Modbus.State
+   extern   USART.HookRx
+   extern   USART.HookTx
 
    ; Initialize default frame delimiter.
    movlw    '\n'
@@ -95,6 +97,18 @@ ASCII.init:
    ; Start out Idle.
    movlw    Modbus.kState_Idle
    movwf    Modbus.State
+
+   ; Hook the serial port.
+   movlw    LOW ASCII.isrRx	 ; set the reception callback
+   movwf    USART.HookRx
+   movlw    HIGH ASCII.isrRx
+   movwf    USART.HookRx + 1
+
+   movlw    LOW ASCII.isrTx	 ; set the transmission callback
+   movwf    USART.HookTx
+   movlw    HIGH ASCII.isrTx
+   movwf    USART.HookTx + 1
+
    return
 
 

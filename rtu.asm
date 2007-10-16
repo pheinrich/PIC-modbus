@@ -95,19 +95,19 @@ TimeoutDelta            res   2     ; difference between timeout values
 ;;
 DelayTable:
    ; Character/frame timers at 9600 baud.
-   data     -((kFrequency / 8 * 33) / 9600)     ; 1718.6탎
-   data     -((kFrequency / 8 * 77) / 9600)     ; 4010.4탎
-   data     -((kFrequency / 8 * 44) / 9600)     ; 4010.4 - 1718.6 ~= 2291.6탎
+   data     -((kFrequency / 4000000) * (1.5 / 9600))  ; 156.25탎
+   data     -((kFrequency / 4000000) * (3.5 / 9600))  ; 364.58탎
+   data     -((kFrequency / 4000000) * (2.0 / 9600))  ; 354.58 - 156.25 ~= 208.33탎
 
    ; Character/frame timers at 19200 baud.
-   data     -((kFrequency / 8 * 33) / 19200)    ;  859.2탎
-   data     -((kFrequency / 8 * 77) / 19200)    ; 2005.2탎
-   data     -((kFrequency / 8 * 44) / 19200)    ; 2005.2 - 859.2 ~= 1145.8탎
+   data     -((kFrequency / 4000000) * (1.5 / 19200)) ; 78.125탎
+   data     -((kFrequency / 4000000) * (3.5 / 19200)) ; 182.29탎
+   data     -((kFrequency / 4000000) * (2.0 / 19200)) ; 182.29 - 78.125 ~= 104.166탎
 
    ; Character/frame timers for all baud rates greater than 19200.
-   data     -((kFrequency / 4000000) *  750)    ;  750탎
-   data     -((kFrequency / 4000000) * 1750)    ; 1750탎
-   data     -((kFrequency / 4000000) * 1000)    ; 1000탎
+   data     -((kFrequency / 4000000) *  750)          ;  750탎
+   data     -((kFrequency / 4000000) * 1750)          ; 1750탎
+   data     -((kFrequency / 4000000) * 1000)          ; 1000탎
 
 
 
@@ -118,6 +118,9 @@ DelayTable:
 ;;  user-configured baud rate.  See ::DelayTable::, above.
 ;;
 RTU.init:
+   extern   USART.HookRx
+   extern   USART.HookTx
+
    ; Set up a pointer to our table of timeout values.
    SetTableBase DelayTable
 
@@ -156,9 +159,21 @@ copyDelays:
    decfsz   WREG
      bra    $-6
 
-   ; Initialize the state machine and exit.
+   ; Initialize the state machine.
    clrf     Modbus.State
    TIMER1   FrameTimeout
+
+   ; Hook the serial port.
+   movlw    LOW RTU.isrRx	 ; set the reception callback
+   movwf    USART.HookRx
+   movlw    HIGH RTU.isrRx
+   movwf    USART.HookRx + 1
+
+   movlw    LOW RTU.isrTx	 ; set the transmission callback
+   movwf    USART.HookTx
+   movlw    HIGH RTU.isrTx
+   movwf    USART.HookTx + 1
+
    return
 
 
