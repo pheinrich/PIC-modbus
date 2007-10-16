@@ -85,8 +85,8 @@ TimeoutDelta            res   2     ; difference between timeout values
 ;;  overhead of more frequent timer processing (see the Remark in �2.5.1.1 of
 ;;  the MODBUS over Serial Line Specification and Implementation guide V1.0).
 ;;  At slower baud rates, the inter-character timeout is 1.5 times the char-
-;;  acter time, the time to transmit one character (11 bits, total); the in-
-;;  ter-frame timeout is 3.5 times the character time.
+;;  acter time, the time to transmit one character; the inter-frame timeout is
+;;  3.5 times the character time.
 ;;
 ;;  Note that the values below are negative, since the timer interrupt fires
 ;;  when the timer overflows from 0xffff to 0x0000.  Also note that the timer
@@ -95,19 +95,19 @@ TimeoutDelta            res   2     ; difference between timeout values
 ;;
 DelayTable:
    ; Character/frame timers at 9600 baud.
-   data     -((kFrequency / 4000000) * (1.5 / 9600))  ; 156.25탎
-   data     -((kFrequency / 4000000) * (3.5 / 9600))  ; 364.58탎
-   data     -((kFrequency / 4000000) * (2.0 / 9600))  ; 354.58 - 156.25 ~= 208.33탎
+   data     -((3 * kFrequency) / (9600 << 3))   ; 156.25탎
+   data     -((7 * kFrequency) / (9600 << 3))   ; 364.58탎
+   data     -((4 * kFrequency) / (9600 << 3))   ; 354.58 - 156.25 ~= 208.33탎
 
    ; Character/frame timers at 19200 baud.
-   data     -((kFrequency / 4000000) * (1.5 / 19200)) ; 78.125탎
-   data     -((kFrequency / 4000000) * (3.5 / 19200)) ; 182.29탎
-   data     -((kFrequency / 4000000) * (2.0 / 19200)) ; 182.29 - 78.125 ~= 104.166탎
+   data     -((3 * kFrequency) / (19200 << 3))  ; 78.125탎
+   data     -((7 * kFrequency) / (19200 << 3))  ; 182.29탎
+   data     -((4 * kFrequency) / (19200 << 3))  ; 182.29 - 78.125 ~= 104.166탎
 
    ; Character/frame timers for all baud rates greater than 19200.
-   data     -((kFrequency / 4000000) *  750)          ;  750탎
-   data     -((kFrequency / 4000000) * 1750)          ; 1750탎
-   data     -((kFrequency / 4000000) * 1000)          ; 1000탎
+   data     -((kFrequency / 4000000) *  750)    ;  750탎
+   data     -((kFrequency / 4000000) * 1750)    ; 1750탎
+   data     -((kFrequency / 4000000) * 1000)    ; 1000탎
 
 
 
