@@ -139,7 +139,7 @@ check9600:
    ; Advance the table pointer if required for the requested baud rate.
    movlw    USART.kBaud_9600
    cpfslt   SPBRG                ; is baud rate more than 9600?
-     bra    copyDelays           ; no, leave the table index undchanged
+     bra    copyDelays           ; no, leave the table index unchanged
 
    ; The requested baud rate is greater than 9600, so advance the table index.
    movlw    0x6
@@ -159,10 +159,6 @@ copyDelays:
    decfsz   WREG
      bra    $-6
 
-   ; Initialize the state machine.
-   clrf     Modbus.State
-   TIMER1   FrameTimeout
-
    ; Hook the serial port.
    movlw    LOW RTU.isrRx	 ; set the reception callback
    movwf    USART.HookRx
@@ -173,6 +169,10 @@ copyDelays:
    movwf    USART.HookTx
    movlw    HIGH RTU.isrTx
    movwf    USART.HookTx + 1
+
+   ; Initialize the state machine.
+   clrf     Modbus.State
+   TIMER1   FrameTimeout
 
    return
 
