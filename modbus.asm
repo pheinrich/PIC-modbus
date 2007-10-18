@@ -181,7 +181,7 @@ Modbus.replyMsg:
    CopyWord Modbus.MsgHead, FSR0L ; debug
    movlw    LOW Modbus.kTxBuffer ; debug
    movwf    FSR1L                ; debug
-   movlw    HIGH Modbus.kTxBuffer; debug
+   movlw    HIGH Modbus.kTxBuffer ; debug
    movwf    FSR1H                ; debug
                                  ; debug
 copyLoop:                        ; debug

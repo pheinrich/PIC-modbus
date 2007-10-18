@@ -177,6 +177,7 @@ rxReception:
 
 rxStash:
    ; Stash the character in the message buffer.
+   movf     USART.Read, W
    call     Modbus.putFrameByte
    bra      rxTimer
 
