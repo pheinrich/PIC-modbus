@@ -70,7 +70,7 @@ Diag.init:
 
    ; Clear the block.
    clrf     POSTINC0
-   decfsz   WREG
+   decfsz   WREG, F
      bra    $-4
 
    return
@@ -223,7 +223,7 @@ Diag.storeLogByte:
 
    ; Increment the tail pointer, making sure it never exceeds the maximum buffer
    ; length of 64.
-   incf     Diag.LogTail         ; add 1 to the tail pointer
+   incf     Diag.LogTail, F      ; add 1 to the tail pointer
    movlw    Modbus.kLogBufLen
    cpfslt   Diag.LogTail         ; is the new tail >= max buffer length?
      clrf   Diag.LogTail         ; yes, reset to 0
@@ -233,7 +233,7 @@ Diag.storeLogByte:
    cpfseq   Diag.LogTail         ; are the head and tail pointers equal?
      return                      ; no, we're done
 
-   incf     Diag.LogHead         ; yes, add 1 to the head pointer, too
+   incf     Diag.LogHead, F      ; yes, add 1 to the head pointer, too
    movlw    Modbus.kLogBufLen
    cpfslt   Diag.LogHead         ; is the new head >= max buffer length?
      clrf   Diag.LogHead         ; yes, reset to 0
