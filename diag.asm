@@ -27,6 +27,9 @@
    global   Diag.logRxEvt
    global   Diag.logTxEvt
 
+   ; Dependencies
+   extern   Modbus.Event
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -66,7 +69,8 @@ Diag.Register           res   2
 Diag.init:
    ; Point to our block of local variables, with total byte length in W.
    lfsr     FSR0, Diag.ExceptStatus
-   movlw    Diag.Register - Diag.ExceptStatus + 2
+;   movlw    Diag.Register - Diag.ExceptStatus + 2
+   movlw    0x15
 
    ; Clear the block.
    clrf     POSTINC0
@@ -110,8 +114,6 @@ Diag.logRestart:
 ;;    -------X    ; not used
 ;;
 Diag.logRxEvt:
-   extern   Modbus.Event
-
    ; Count every message we see on the bus, even if it's not addressed to us.
    IncrementWord Diag.NumMsgs
 
@@ -168,8 +170,6 @@ rxWrite:
 ;;    -------1    ; read exception sent (exception codes 1-3)
 ;;
 Diag.logTxEvt:
-   extern   Modbus.Event
-
    ; Count all exception responses transmitted by this device.
    movlw    (1 << Modbus.kTxEvt_ReadEx) | (1 << Modbus.kTxEvt_AbortEx) | (1 << Modbus.kTxEvt_BusyEx) | (1 << Modbus.kTxEvt_NAKEx)
    andwf    Modbus.Event, W
@@ -211,8 +211,6 @@ txWrite:
 ;;  length, 64 (the head pointer may move to compensate).
 ;;
 Diag.storeLogByte:
-   extern   Modbus.Event
-
    ; Keep track of overall event count, even across comm restarts.
    IncrementWord Diag.NumEvents
 

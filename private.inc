@@ -20,6 +20,6 @@
    list b=3
 
    #include <p18f242.inc>
-   #include "..\framework\macros.inc"
-   #include "..\framework\framework.inc"
+   #include "../framework/macros.inc"
+   #include "../framework/framework.inc"
    #include "modbus.inc"

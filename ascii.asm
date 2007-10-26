@@ -26,6 +26,25 @@
    global   ASCII.isrTimeout
    global   ASCII.isrTx
 
+   ; Dependencies
+   extern   Diag.logRxEvt
+   extern   Diag.logTxEvt
+   extern   Modbus.Checksum
+   extern   Modbus.Event
+   extern   Modbus.getFrameByte
+   extern   Modbus.MsgTail
+   extern   Modbus.putFrameByte
+   extern   Modbus.resetFrame
+   extern   Modbus.State
+   extern   Modbus.validateMsg
+   extern   USART.HookRx
+   extern   USART.HookTx
+   extern   USART.Read
+   extern   USART.send
+   extern   Util.char2hex
+   extern   Util.hex2char
+   extern   Util.Volatile
+
 
 
 ; Count of timer1 overflows in 1 second (~92 @ 24 MHz).
@@ -86,10 +105,6 @@ ASCII.Timeouts          res   1  ; supports extra long (>1s) delays
 ;;  Initializes the ASCII mode state machine and some associated variables.
 ;;
 ASCII.init:
-   extern   Modbus.State
-   extern   USART.HookRx
-   extern   USART.HookTx
-
    ; Initialize default frame delimiter.
    movlw    '\n'
    movwf    ASCII.Delimiter
@@ -121,15 +136,6 @@ ASCII.init:
 ;;  byte.
 ;;
 ASCII.isrRx:
-   extern   Diag.logRxEvt
-   extern   Modbus.Event
-   extern   Modbus.putFrameByte
-   extern   Modbus.resetFrame
-   extern   Modbus.State
-   extern   Modbus.MsgTail
-   extern   Modbus.validateMsg
-   extern   USART.Read
-
    ; Determine the state of the state machine, since characters received at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Idle
@@ -208,9 +214,9 @@ rxWaiting:
    CopyWord Modbus.MsgTail, FSR1L ; save the old value for later
 
    movlw    0x2                  ; rewind 2 characters
-   subwf    Modbus.MsgTail
+   subwf    Modbus.MsgTail, F
    movlw    0x0
-   subwfb   Modbus.MsgTail + 1
+   subwfb   Modbus.MsgTail + 1, F
 
    ; Compute the checksum from the original characters, then convert the message
    ; to the equivalent binary (RTU) format.  Once that's done, we can use common
@@ -247,9 +253,6 @@ rxDone:
 ;;  with the frame, which this method flags, if detected.
 ;;
 ASCII.isrTimeout:
-   extern   Modbus.Event
-   extern   Modbus.State
-
    ; Determine the state of the state machine.  A timeout while receiving or wait-
    ; ing means the frame has gone stale.
    movlw    Modbus.kState_Reception
@@ -263,7 +266,7 @@ ASCII.isrTimeout:
 timeoutUpdate:
    ; The timer fired, so decrement the timeout count.  Once that count has reached
    ; 0, our "long" timer has elapsed and we can assume the frame is incomplete.
-   decfsz   ASCII.Timeouts       ; has 1 second expired?
+   decfsz   ASCII.Timeouts, F    ; has 1 second expired?
      return                      ; no, keep waiting
 
    bsf      Modbus.Event, Modbus.kRxEvt_CommErr; yes, so frame is incomplete
@@ -276,14 +279,6 @@ timeoutUpdate:
 ;;  void ASCII.isrTx()
 ;;
 ASCII.isrTx:
-   extern   Diag.logTxEvt
-   extern   Modbus.Checksum
-   extern   Modbus.getFrameByte
-   extern   Modbus.MsgTail
-   extern   Modbus.State
-   extern   USART.send
-   extern   Util.hex2char
-
    ; Determine the state of the state machine.
    movlw    Modbus.kState_EmitStart
    cpfseq   Modbus.State
@@ -297,7 +292,7 @@ ASCII.isrTx:
 
    ; Store the checksum at the end of the message buffer and update the tail.
    movf     Modbus.Checksum, W
-   swapf    WREG
+   swapf    WREG, W
    call     Util.hex2char
    movwf    POSTINC0
 
@@ -374,10 +369,6 @@ txEmitDone:
 ;;  much the message).
 ;;
 ascii2rtu:
-   extern   Modbus.MsgTail
-   extern   Util.Volatile
-   extern   Util.char2hex
-
    ; Initialize some pointers.
    lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = message head (ASCII)
    lfsr     FSR2, Modbus.kRxBuffer ; FSR2 = message tail (RTU)
@@ -403,7 +394,7 @@ a2rUpdate:
    ; Read the next two characters and combine them into a single byte.
    movf     POSTINC0, W          ; read the first character
    call     Util.char2hex        ; convert to nybble
-   swapf    WREG
+   swapf    WREG, W
    movwf    Util.Volatile
 
    movf     POSTINC0, W          ; read the second character
@@ -430,9 +421,6 @@ a2rUpdate:
 ;;  to be included in the checksum.
 ;;
 calcLRC:
-   extern   Modbus.Checksum
-   extern   Modbus.MsgTail
-
    ; Initialize the checksum and a pointer to the message buffer.
    clrf     Modbus.Checksum      ; LRC starts at 0
    clrf     Modbus.Checksum + 1
@@ -454,7 +442,7 @@ lrcLoop:
 lrcUpdate:
    ; Update the checksum with the current character.
    movf     POSTINC0, W          ; read the charecter at head
-   addwf    Modbus.Checksum      ; add to sum, discarding carry
+   addwf    Modbus.Checksum, F   ; add to sum, discarding carry
    bra      lrcLoop              ; go back for the next one
 
 
@@ -467,9 +455,6 @@ lrcUpdate:
 ;;  past the last message byte, not including the checksum.
 ;;
 rtu2ascii:
-   extern   Modbus.MsgTail
-   extern   Util.hex2char
-
    ; Initialize some pointers.
    lfsr     FSR0, Modbus.kTxBuffer ; FSR0 = message head (RTU)
    lfsr     FSR2, Modbus.kASCIIBuffer ; FSR2 = message tail (ASCII)
@@ -491,7 +476,7 @@ r2aLoop:
 r2aUpdate:
    ; Convert the high nybble of the next byte to an ASCII character.
    movf     INDF0, W             ; read the byte, but don't advance the pointer
-   swapf    WREG                 ; process the high nybble first
+   swapf    WREG, W              ; process the high nybble first
    call     Util.hex2char
    movwf    POSTINC2             ; store it in the kASCIIBuffer
 

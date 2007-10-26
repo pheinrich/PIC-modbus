@@ -102,7 +102,7 @@ Modbus.init:
    extern   Util.Frame
 
    ; The operating mode determines which state machine will be active.
-   movf     Util.Frame           ; are we in ASCII (7-bit) mode?
+   movf     Util.Frame, F        ; are we in ASCII (7-bit) mode?
    bz       initRTU              ; no, initialize RTU mode
    call     ASCII.init           ; yes, initialize ASCII mode
    bra      initDiag

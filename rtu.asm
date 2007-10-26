@@ -23,6 +23,24 @@
    global   RTU.isrTimeout
    global   RTU.isrTx
 
+   ; Dependencies
+   extern   Diag.logRxEvt
+   extern   Diag.logTxEvt
+   extern   Modbus.Checksum
+   extern   Modbus.Event
+   extern   Modbus.getFrameByte
+   extern   Modbus.MsgHead
+   extern   Modbus.MsgTail
+   extern   Modbus.putFrameByte
+   extern   Modbus.resetFrame
+   extern   Modbus.State
+   extern   Modbus.validateMsg
+   extern   USART.HookRx
+   extern   USART.HookTx
+   extern   USART.send
+   extern   Util.Frame
+
+
 
 
 ;; ----------------------------------------------
@@ -118,9 +136,6 @@ DelayTable:
 ;;  user-configured baud rate.  See ::DelayTable::, above.
 ;;
 RTU.init:
-   extern   USART.HookRx
-   extern   USART.HookTx
-
    ; Set up a pointer to our table of timeout values.
    SetTableBase DelayTable
 
@@ -132,7 +147,7 @@ RTU.init:
    ; The requested baud rate is greater than 19200, so advance the table index.
    movlw    0x6
    tblrd*+
-   decfsz   WREG
+   decfsz   WREG, W
      bra    $-4
 
 check9600:
@@ -144,7 +159,7 @@ check9600:
    ; The requested baud rate is greater than 9600, so advance the table index.
    movlw    0x6
    tblrd*+
-   decfsz   WREG
+   decfsz   WREG, W
      bra    $-4
 
 copyDelays:
@@ -156,7 +171,7 @@ copyDelays:
    movlw    0x6
    tblrd*+
    movff    TABLAT, POSTINC0
-   decfsz   WREG
+   decfsz   WREG, W
      bra    $-6
 
    ; Hook the serial port.
@@ -186,10 +201,6 @@ copyDelays:
 ;;  mentation guide V1.0".
 ;;
 RTU.isrRx:
-   extern   Modbus.putFrameByte
-   extern   Modbus.resetFrame
-   extern   Modbus.State
-
    ; Determine the state of the state machine, since characters received at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Init
@@ -251,13 +262,6 @@ rxFrame:
 ;;  void RTU.isrTimeout()
 ;;
 RTU.isrTimeout:
-   extern   Diag.logRxEvt
-   extern   Diag.logTxEvt
-   extern   Modbus.Event
-   extern   Modbus.MsgTail
-   extern   Modbus.State
-   extern   Modbus.validateMsg
-
    ; Determine the state of the state machine, since timeouts that occur at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Init
@@ -306,9 +310,9 @@ timeoutWaiting:
    bnz      timeoutDone          ; yes, discard the frame
 
    movlw    0x2                  ; rewind 2 characters
-   subwf    Modbus.MsgTail
+   subwf    Modbus.MsgTail, F
    movlw    0x0
-   subwfb   Modbus.MsgTail + 1
+   subwfb   Modbus.MsgTail + 1, F
 
    ; Compute the checksum of the message so it can be validated, along with the
    ; target address.
@@ -342,13 +346,6 @@ timeoutIdle:
 ;;  void RTU.isrTx()
 ;;
 RTU.isrTx:
-   extern   Modbus.Checksum
-   extern   Modbus.getFrameByte
-   extern   Modbus.MsgHead
-   extern   Modbus.MsgTail
-   extern   Modbus.State
-   extern   USART.send
-
    ; Determine the state of the state machine.
    movlw    Modbus.kState_EmitStart
    cpfseq   Modbus.State
@@ -410,16 +407,12 @@ txEnd:
 ;;  buffer byte to be included in the checksum.
 ;;
 calcCRC:
-   extern   Modbus.Checksum
-   extern   Modbus.MsgTail
-   extern   Util.Frame
-
    ; Compute the message length, which is limited to 256 bytes in RTU mode.  This
    ; means we can ignore the high byte of the message tail pointer, even if it
    ; crosses a page boundary.
    movff    Modbus.MsgTail, Util.Frame
    movf     FSR0L, W
-   subwf    Util.Frame           ; compute the 8-bit message length
+   subwf    Util.Frame, F        ; compute the 8-bit message length
 
    ; Initialize the checksum and a pointer to the message buffer.
    setf     Modbus.Checksum      ; CRC starts at 0xffff
@@ -428,30 +421,30 @@ calcCRC:
 crcLoop:
    ; Update the checksum with the current byte.
    movf     POSTINC0, W          ; read the byte at head
-   xorwf    Modbus.Checksum      ; add it to the checksum's low byte
+   xorwf    Modbus.Checksum, F   ; add it to the checksum's low byte
    movlw    0x08                 ; prepare to loop through all bits
    movwf    Util.Frame + 1
 
 crcXOR:
    ; Shift the checksum one bit.
    bcf      STATUS, C            ; shift 0 into the MSB
-   rrcf     Modbus.Checksum + 1
-   rrcf     Modbus.Checksum      ; was the LSB set?
+   rrcf     Modbus.Checksum + 1, F
+   rrcf     Modbus.Checksum, F   ; was the LSB set?
    bnc      crcNext              ; no, process the next bit
 
    ; The LSB was set, so apply the polynomial.
    movlw    0xa0
-   xorwf    Modbus.Checksum + 1
+   xorwf    Modbus.Checksum + 1, F
    movlw    0x01
-   xorwf    Modbus.Checksum
+   xorwf    Modbus.Checksum, F
 
 crcNext:
    ; Repeat for every bit in the current byte.
-   decfsz   Util.Frame + 1
+   decfsz   Util.Frame + 1, F
      bra    crcXOR
 
    ; Repeat for every byte in the message.
-   decfsz   Util.Frame
+   decfsz   Util.Frame, F
      bra    crcLoop
    return
 
