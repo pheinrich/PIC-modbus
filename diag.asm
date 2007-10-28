@@ -69,8 +69,7 @@ Diag.Register           res   2
 Diag.init:
    ; Point to our block of local variables, with total byte length in W.
    lfsr     FSR0, Diag.ExceptStatus
-;   movlw    Diag.Register - Diag.ExceptStatus + 2
-   movlw    0x15
+   movlw    Diag.Register - Diag.ExceptStatus + 2
 
    ; Clear the block.
    clrf     POSTINC0
