@@ -43,11 +43,9 @@ class Modbus
       adu += pdu
       adu += "%04x" % crc( adu )
     else
-      adu  = ':'
-      adu += "%02x" % slave
+      adu  = ":%02x" % slave
       pdu.each_byte { |b| adu += "%02x" % b }
-      adu += "%02x" % lrc( adu[1..-1] )
-      adu += "\r\n"
+      adu += "%02x\r\n" % lrc( adu[1..-1] )
     end
 
 #    sp.puts( adu )
