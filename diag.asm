@@ -17,10 +17,10 @@
 
    #include "private.inc"
 
-   ; Variables
+   ; Global Variables
    global   Diag.Options
 
-   ; Methods
+   ; Public Methods
    global   Diag.init
    global   Diag.logListenOnly
    global   Diag.logRestart
@@ -37,15 +37,15 @@
 ;; ---------------------------------------------------------------------------
 
 Diag.ExceptStatus       res   1
-Diag.NumEvents          res   2  ; not cleared on comm restart
+Diag.NumEvents          res   2     ; not cleared on comm restart
 Diag.Options            res   1
                         ; 1-------  return query data
                         ; -1------  listen-only mode
                         ; --1-----  busy
                         ; ---XXXXX  reserved
 
-Diag.LogHead            res   1  ; pointer to the oldest event
-Diag.LogTail            res   1  ; pointer to most recent event
+Diag.LogHead            res   1     ; pointer to the oldest event
+Diag.LogTail            res   1     ; pointer to most recent event
 
 Diag.NumCommErrs        res   2
 Diag.NumExceptErrs      res   2
@@ -220,20 +220,20 @@ Diag.storeLogByte:
 
    ; Increment the tail pointer, making sure it never exceeds the maximum buffer
    ; length of 64.
-   incf     Diag.LogTail, F      ; add 1 to the tail pointer
+   incf     Diag.LogTail, F         ; add 1 to the tail pointer
    movlw    Modbus.kLogBufLen
-   cpfslt   Diag.LogTail         ; is the new tail >= max buffer length?
-     clrf   Diag.LogTail         ; yes, reset to 0
+   cpfslt   Diag.LogTail            ; is the new tail >= max buffer length?
+     clrf   Diag.LogTail            ; yes, reset to 0
 
    ; The head pointer may need to be adjusted as well.
    movf     Diag.LogHead, W
-   cpfseq   Diag.LogTail         ; are the head and tail pointers equal?
-     return                      ; no, we're done
+   cpfseq   Diag.LogTail            ; are the head and tail pointers equal?
+     return                         ; no, we're done
 
-   incf     Diag.LogHead, F      ; yes, add 1 to the head pointer, too
+   incf     Diag.LogHead, F         ; yes, add 1 to the head pointer, too
    movlw    Modbus.kLogBufLen
-   cpfslt   Diag.LogHead         ; is the new head >= max buffer length?
-     clrf   Diag.LogHead         ; yes, reset to 0
+   cpfslt   Diag.LogHead            ; is the new head >= max buffer length?
+     clrf   Diag.LogHead            ; yes, reset to 0
 
    return
 
