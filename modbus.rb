@@ -54,7 +54,7 @@ class Modbus
       adu  = slave.chr
       adu += pdu
       sum  = crc( adu )
-      adu += "%c%c" % [ 0xff & sum, sum >> 8 ]
+      adu += (0xff & sum).chr + (sum >> 8).chr
     else
       adu  = ":%02x" % slave
       pdu.each_byte { |b| adu += "%02x" % b }
