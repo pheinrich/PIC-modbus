@@ -62,10 +62,34 @@ class Modbus
     end
 
     @sp.puts( adu ) if @sp
-    puts( "Sent: " + adu )
+    puts( "Tx: " + adu )
   end
 
   def rx
+    adu = @sp.gets if @sp
+    puts( "Rx: " + adu )
+
+    if is_rtu?
+      slave = adu[ 0 ]
+      adu[ 1..-3 ].step( 2 ) { |i| pdu += adu[ i..i+1 ].hex }
+      pdu = adu[ 1..-3 ]
+
+      sum = crc( adu[ 0..-3 ] )
+      if sum != adu[ -1 ] + (adu[ -2 ] << 8)
+        puts( "CRC incorrect! (Calculated 0x%04x)" % sum )
+      end
+    else
+      slave = adu[1..2].hex
+      pdu = adu[ 3..-5 ]
+
+      sum = lrc( adu[ 1..-5 ] )
+      if sum != adu[ -4..-3 ].hex
+        puts( "LRC incorrect! (Calculated 0x%02x)" % sum )
+      end
+
+    end
+
+    slave, pdu
   end
 end
 
