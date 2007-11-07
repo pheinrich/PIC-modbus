@@ -32,7 +32,7 @@ class Modbus
 
   def crc( pdu )
     sum = 0xffff
-    pdu.each do |b|
+    pdu.each_byte do |b|
       sum ^= b
       8.times do
         carry = (1 == 1 & sum)
@@ -51,11 +51,10 @@ class Modbus
 
   def tx( slave, pdu )
     if is_rtu?
-      adu  = [ slave ]
-      adu += pdu.unpack( "c#{pdu.length}" )
+      adu  = slave.chr
+      adu += pdu
       sum  = crc( adu )
-      adu += [ 0xff & sum, sum >> 8 ]
-      adu  = adu.pack( "c#{adu.length}" )
+      adu += "%c%c" % [ 0xff & sum, sum >> 8 ]
     else
       adu  = ":%02x" % slave
       pdu.each_byte { |b| adu += "%02x" % b }
@@ -63,7 +62,7 @@ class Modbus
     end
 
     @sp.puts( adu ) if @sp
-    puts( adu )
+    puts( "Sent: " + adu )
   end
 
   def rx
