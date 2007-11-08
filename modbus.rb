@@ -66,34 +66,41 @@ class Modbus
   end
 
   def rx
-    adu = @sp.gets if @sp
-    puts( "Rx: " + adu )
+#    adu = @sp.gets if @sp
+    adu = "\001ABCDEF0123456789\001\002\111\222\255\017" if is_rtu?
+    adu = ":0141424344454630313233343536373839010249928b\r\n" if !is_rtu?
+    puts( "Rx: \"#{ad" + adu )
 
     if is_rtu?
       slave = adu[ 0 ]
-      adu[ 1..-3 ].step( 2 ) { |i| pdu += adu[ i..i+1 ].hex }
       pdu = adu[ 1..-3 ]
 
       sum = crc( adu[ 0..-3 ] )
-      if sum != adu[ -1 ] + (adu[ -2 ] << 8)
+      if sum != adu[ -2 ] + (adu[ -1 ] << 8)
         puts( "CRC incorrect! (Calculated 0x%04x)" % sum )
       end
     else
       slave = adu[1..2].hex
-      pdu = adu[ 3..-5 ]
-
+      pdu = ""
+   
       sum = lrc( adu[ 1..-5 ] )
       if sum != adu[ -4..-3 ].hex
         puts( "LRC incorrect! (Calculated 0x%02x)" % sum )
       end
 
+      adu = adu[ 3..-5 ]
+      (0...adu.length).step( 2 ) { |i| pdu << adu[ i..i+1 ].hex.chr }
     end
 
-    slave, pdu
+    return slave, pdu
   end
 end
 
 modbus = Modbus.new( "COM4" )
-modbus.tx( 1, "ABCDEF0123456789" )
+modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
+slave, pdu = modbus.rx
+puts "Slave = 0x%02x, PDU = %s" % [slave, pdu]
 modbus.ascii!
-modbus.tx( 1, "ABCDEF0123456789" )
+modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
+slave, pdu = modbus.rx
+puts "Slave = 0x%02x, PDU = %s" % [slave, pdu]
