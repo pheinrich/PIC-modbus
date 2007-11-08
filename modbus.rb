@@ -62,14 +62,12 @@ class Modbus
     end
 
     @sp.puts( adu ) if @sp
-    puts( "Tx: " + adu )
+    puts( "Tx: \"#{adu}\"" )
   end
 
   def rx
-#    adu = @sp.gets if @sp
-    adu = "\001ABCDEF0123456789\001\002\111\222\255\017" if is_rtu?
-    adu = ":0141424344454630313233343536373839010249928b\r\n" if !is_rtu?
-    puts( "Rx: \"#{ad" + adu )
+    adu = @sp.gets if @sp
+    puts( "Rx: \"#{adu}\"" )
 
     if is_rtu?
       slave = adu[ 0 ]
@@ -99,8 +97,8 @@ end
 modbus = Modbus.new( "COM4" )
 modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
 slave, pdu = modbus.rx
-puts "Slave = 0x%02x, PDU = %s" % [slave, pdu]
+puts "Slave = 0x%02x, PDU = \"#{pdu}\"" % slave
 modbus.ascii!
 modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
 slave, pdu = modbus.rx
-puts "Slave = 0x%02x, PDU = %s" % [slave, pdu]
+puts "Slave = 0x%02x, PDU = \"#{pdu}\"" % slave
