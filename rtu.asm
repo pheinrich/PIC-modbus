@@ -59,13 +59,13 @@
 TIMER1      macro timeout
    ; Stop the timer and prepare to initialize its countdown period.
    movlw    b'10000000'
-            ; 1------- RD16   ; enable 16-bit read/write operations
-            ; -X------        ; [unimplemented]
-            ; --00---- T1CKPS ; 1:1 prescaler
-            ; ----0--- T1OSCEN; disable external oscillator
-            ; -----X-- T1SYNC ; [not used when using internal clock]
-            ; ------0- TMR1CS ; use internal clock
-            ; -------0 TMR1ON ; disable timer, for now
+            ; 1------- RD16         ; enable 16-bit read/write operations
+            ; -X------              ; [unimplemented]
+            ; --00---- T1CKPS       ; 1:1 prescaler
+            ; ----0--- T1OSCEN      ; disable external oscillator
+            ; -----X-- T1SYNC       ; [not used when using internal clock]
+            ; ------0- TMR1CS       ; use internal clock
+            ; -------0 TMR1ON       ; disable timer, for now
    movwf    T1CON
 
    ; Set the countdown period.
@@ -73,9 +73,9 @@ TIMER1      macro timeout
    movff    timeout, TMR1L
 
    ; Start the timer.
-   bsf      PIE1, TMR1IE      ; enable associated overflow interrupt
-   bsf      T1CON, TMR1ON     ; enable timer
-   bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
+   bsf      PIE1, TMR1IE            ; enable associated overflow interrupt
+   bsf      T1CON, TMR1ON           ; enable timer
+   bcf      PIR1, TMR1IF            ; clear the timer interrupt flag
    endm
 
 
@@ -141,8 +141,8 @@ RTU.init:
 
    ; Advance the table pointer if required for the requested baud rate.
    movlw    USART.kBaud_19200
-   cpfslt   SPBRG                ; is baud rate more than 19200?
-     bra    check9600            ; no, check lower rate
+   cpfslt   SPBRG                   ; is baud rate more than 19200?
+     bra    check9600               ; no, check lower rate
 
    ; The requested baud rate is greater than 19200, so advance the table index.
    movlw    0x6
@@ -153,8 +153,8 @@ RTU.init:
 check9600:
    ; Advance the table pointer if required for the requested baud rate.
    movlw    USART.kBaud_9600
-   cpfslt   SPBRG                ; is baud rate more than 9600?
-     bra    copyDelays           ; no, leave the table index unchanged
+   cpfslt   SPBRG                   ; is baud rate more than 9600?
+     bra    copyDelays              ; no, leave the table index unchanged
 
    ; The requested baud rate is greater than 9600, so advance the table index.
    movlw    0x6
@@ -204,8 +204,8 @@ RTU.isrRx:
    ; Determine the state of the state machine, since characters received at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Init
-   cpfseq   Modbus.State         ; is state machine in initial state?
-     bra    rxIdle               ; no, check if idle state
+   cpfseq   Modbus.State            ; is state machine in initial state?
+     bra    rxIdle                  ; no, check if idle state
 
    ; Initial State:  characters received now are from a frame already in progress,
    ; so reset the frame timeout timer and wait for it to expire before changing to
@@ -215,8 +215,8 @@ RTU.isrRx:
 rxIdle:
    ; Check for the next state concerned with received characters.
    movlw    Modbus.kState_Idle
-   cpfseq   Modbus.State         ; is state machine in idle state?
-     bra    rxReception          ; no, check if reception state
+   cpfseq   Modbus.State            ; is state machine in idle state?
+     bra    rxReception             ; no, check if reception state
 
    ; Idle State:  a character received now indicates the beginning of a new frame,
    ; so begin reception.
@@ -225,26 +225,26 @@ rxIdle:
 
    lfsr     FSR0, Modbus.kRxBuffer
    call     Modbus.resetFrame
-   bra      rxStash              ; start buffering frame characters
+   bra      rxStash                 ; start buffering frame characters
 
 rxReception:
    ; Check for the next state concerned with received characters.
    movlw    Modbus.kState_Reception
-   cpfseq   Modbus.State         ; is state machine in reception state?
-     bra    rxCtrlWait           ; no, check if control-wait state
+   cpfseq   Modbus.State            ; is state machine in reception state?
+     bra    rxCtrlWait              ; no, check if control-wait state
 
 rxStash:
    ; Reception State:  characters received now are buffered until a character gap
    ; is detected.
    call     Modbus.putFrameByte
-   TIMER1   CharTimeout          ; reset the character timeout timer
+   TIMER1   CharTimeout             ; reset the character timeout timer
    return
 
 rxCtrlWait:
    ; Check for the next state concerned with received characters.
    movlw    Modbus.kState_Waiting
-   cpfseq   Modbus.State         ; is state machine in control-wait state?
-     return                      ; no, we can exit
+   cpfseq   Modbus.State            ; is state machine in control-wait state?
+     return                         ; no, we can exit
 
    ; Control-Wait State:  characters received now indicate a partial frame was
    ; received.  Now we must wait for a full frame timeout period to elapse before
@@ -265,8 +265,8 @@ RTU.isrTimeout:
    ; Determine the state of the state machine, since timeouts that occur at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Init
-   cpfseq   Modbus.State         ; is state machine in initial state?
-     bra    timeoutEmitEnd       ; no, check if emit end state
+   cpfseq   Modbus.State            ; is state machine in initial state?
+     bra    timeoutEmitEnd          ; no, check if emit end state
 
    ; Initial State:  a timeout here indicates a full frame timeout period has
    ; elapsed.  It's now safe to enter the idle state.
@@ -275,8 +275,8 @@ RTU.isrTimeout:
 timeoutEmitEnd:
    ; Check for the next state concerned with timeouts.
    movlw    Modbus.kState_EmitEnd
-   cpfseq   Modbus.State         ; is state machine in emit end state?
-     bra    timeoutReception     ; no, check if reception state
+   cpfseq   Modbus.State            ; is state machine in emit end state?
+     bra    timeoutReception        ; no, check if reception state
 
    ; Emit End State:  a timeout here indicates our emission has been set off by a
    ; full frame timeout period.  We're idle again.
@@ -286,57 +286,57 @@ timeoutEmitEnd:
 timeoutReception:
    ; Check for the next state concerned with timeouts.
    movlw    Modbus.kState_Reception
-   cpfseq   Modbus.State         ; is state machine in reception state?
-     bra    timeoutWaiting       ; no, check if control-wait state
+   cpfseq   Modbus.State            ; is state machine in reception state?
+     bra    timeoutWaiting          ; no, check if control-wait state
 
    ; Reception State:  if a timeout occurs here, it must be the inter-character
    ; delay.  We switch to the control-wait state and postpone the timeout until
    ; the end of a full frame timeout period.
-   movlw    Modbus.kState_Waiting ; enter control-wait state
+   movlw    Modbus.kState_Waiting   ; enter control-wait state
    movwf    Modbus.State
-   TIMER1   TimeoutDelta         ; reset frame timeout timer
+   TIMER1   TimeoutDelta            ; reset frame timeout timer
    return
 
 timeoutWaiting:
    ; Check for the next state concerned with timeouts.
    movlw    Modbus.kState_Waiting
-   cpfseq   Modbus.State         ; is state machine in control-wait state?
-     return                      ; no, we can exit
+   cpfseq   Modbus.State            ; is state machine in control-wait state?
+     return                         ; no, we can exit
 
    ; Control-Wait State:  a timeout here means a full frame timeout period has
    ; elapsed since the last character was received.
    movlw    (1 << Modbus.kRxEvt_CommErr) | (1 << Modbus.kRxEvt_Overrun)
-   andwf    Modbus.Event, W      ; were there communication errors?
-   bnz      timeoutDone          ; yes, discard the frame
+   andwf    Modbus.Event, W         ; were there communication errors?
+   bnz      timeoutDone             ; yes, discard the frame
 
-   movlw    0x2                  ; rewind 2 characters
+   movlw    0x2                     ; rewind 2 characters
    subwf    Modbus.MsgTail, F
    movlw    0x0
    subwfb   Modbus.MsgTail + 1, F
 
    ; Compute the checksum of the message so it can be validated, along with the
    ; target address.
-   lfsr     FSR0, Modbus.kRxBuffer ; FSR0 = message head
+   lfsr     FSR0, Modbus.kRxBuffer  ; FSR0 = message head
    rcall    calcCRC
    call     Modbus.validateMsg
-   tstfsz   WREG                 ; was the validation successful?
-     bra    timeoutDone          ; no, discard the frame
+   tstfsz   WREG                    ; was the validation successful?
+     bra    timeoutDone             ; no, discard the frame
 
    ; No reception errors, no checksum errors, and the message is addressed to us.
    movlw    Modbus.kState_MsgQueued ; alert the main event loop that a message has arrived
    movwf    Modbus.State
-   bcf      PIE1, TMR1IE         ; disable further timer1 interrupts
-   goto     Diag.logRxEvt        ; log the receive event in the event log
+   bcf      PIE1, TMR1IE            ; disable further timer1 interrupts
+   goto     Diag.logRxEvt           ; log the receive event in the event log
 
 timeoutDone:
    bsf      Modbus.Event, Modbus.kRxEvt_NoResponse
-   call     Diag.logRxEvt        ; log the receive event in the event log
+   call     Diag.logRxEvt           ; log the receive event in the event log
 
 timeoutIdle:
    ; Become idle, since we know a full frame timeout period has elapsed.
-   movlw    Modbus.kState_Idle   ; be ready to receive the next message
+   movlw    Modbus.kState_Idle      ; be ready to receive the next message
    movwf    Modbus.State
-   bcf      PIE1, TMR1IE         ; disable timer1 interrupts
+   bcf      PIE1, TMR1IE            ; disable timer1 interrupts
 
    return
 
@@ -388,8 +388,8 @@ txEnd:
    ; return to the idle state.
    movlw    Modbus.kState_EmitEnd
    movwf    Modbus.State
-   bcf      PIE1, TXIE           ; disable empty transmit buffer interrupts
-   TIMER1   FrameTimeout     ; pause before returning to idle state
+   bcf      PIE1, TXIE              ; disable empty transmit buffer interrupts
+   TIMER1   FrameTimeout            ; pause before returning to idle state
    return
 
 
@@ -412,25 +412,25 @@ calcCRC:
    ; crosses a page boundary.
    movff    Modbus.MsgTail, Util.Frame
    movf     FSR0L, W
-   subwf    Util.Frame, F        ; compute the 8-bit message length
+   subwf    Util.Frame, F           ; frame[0] = 8-bit message length
 
    ; Initialize the checksum and a pointer to the message buffer.
-   setf     Modbus.Checksum      ; CRC starts at 0xffff
-   setf     Modbus.Checksum + 1
+   setf     Modbus.Checksum
+   setf     Modbus.Checksum + 1     ; crc = 0xffff, initially
 
 crcLoop:
    ; Update the checksum with the current byte.
-   movf     POSTINC0, W          ; read the byte at head
-   xorwf    Modbus.Checksum, F   ; add it to the checksum's low byte
-   movlw    0x08                 ; prepare to loop through all bits
+   movf     POSTINC0, W             ; read the byte at head
+   xorwf    Modbus.Checksum, F      ; add it to the checksum's low byte
+   movlw    0x08                    ; prepare to loop through all bits
    movwf    Util.Frame + 1
 
 crcXOR:
    ; Shift the checksum one bit.
-   bcf      STATUS, C            ; shift 0 into the MSB
+   bcf      STATUS, C               ; shift 0 into the MSB
    rrcf     Modbus.Checksum + 1, F
-   rrcf     Modbus.Checksum, F   ; was the LSB set?
-   bnc      crcNext              ; no, process the next bit
+   rrcf     Modbus.Checksum, F      ; was the LSB set?
+   bnc      crcNext                 ; no, process the next bit
 
    ; The LSB was set, so apply the polynomial.
    movlw    0xa0

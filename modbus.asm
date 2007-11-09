@@ -17,7 +17,7 @@
 
    #include "private.inc"
 
-   ; Variables
+   ; Global Variables
    global   Modbus.Address
    global   Modbus.Event
    global   Modbus.Checksum
@@ -26,7 +26,8 @@
    global   Modbus.NoChecksum
    global   Modbus.State
 
-   ; Methods
+   ; Public Methods
+   global   Modbus.dispatchMsg
    global   Modbus.getFrameByte
    global   Modbus.init
    global   Modbus.isr
@@ -34,6 +35,16 @@
    global   Modbus.replyMsg
    global   Modbus.resetFrame
    global   Modbus.validateMsg
+
+   ; Dependencies
+   extern   ASCII.init
+   extern   ASCII.isrTimeout
+   extern   Diag.init
+   extern   RTU.init
+   extern   RTU.isrTimeout
+   extern   USART.init
+   extern   USART.isr
+   extern   Util.Frame
 
 
 
@@ -95,12 +106,6 @@ getByte:
 ;;  requested.
 ;;
 Modbus.init:
-   extern   ASCII.init
-   extern   Diag.init
-   extern   RTU.init
-   extern   USART.init
-   extern   Util.Frame
-
    ; The operating mode determines which state machine will be active.
    movf     Util.Frame, F        ; are we in ASCII (7-bit) mode?
    bz       initRTU              ; no, initialize RTU mode
@@ -124,10 +129,6 @@ initDiag:
 ;;  void Modbus.isr()
 ;;
 Modbus.isr:
-   extern   ASCII.isrTimeout
-   extern   RTU.isrTimeout
-   extern   USART.isr
-
    ; Service the serial hardware.  We have already hooked its transmit and re-
    ; ceive interrupt methods, which ensures the correct state machine will get a
    ; chance to process those events.
@@ -174,27 +175,24 @@ Modbus.replyMsg:
    ; This method does nothing if a complete, error-free server request isn't al-
    ; ready available in the message buffer.
    movlw    Modbus.kState_MsgQueued
-   cpfseq   Modbus.State         ; is there a message waiting for us?
-     return                      ; no, bail
+   cpfseq   Modbus.State            ; is there a message waiting for us?
+     return                         ; no, bail
 
    ; DEBUG copy the received message to the transmit buffer (echo the message).
-   CopyWord Modbus.MsgHead, FSR0L ; debug
-   movlw    LOW Modbus.kTxBuffer ; debug
-   movwf    FSR1L                ; debug
-   movlw    HIGH Modbus.kTxBuffer ; debug
-   movwf    FSR1H                ; debug
-                                 ; debug
-copyLoop:                        ; debug
-   movf     FSR0L, W             ; debug
-   cpfseq   Modbus.MsgTail       ; debug
-     bra    copyIt               ; debug
-                                 ; debug
-   movf     FSR0H, W             ; debug
-   cpfseq   Modbus.MsgTail + 1   ; debug
-     bra    copyIt               ; debug
-
-;   movlw    0xb5
-;   movwf    POSTINC1
+   CopyWord Modbus.MsgHead, FSR0L   ; debug
+   movlw    LOW Modbus.kTxBuffer    ; debug
+   movwf    FSR1L                   ; debug
+   movlw    HIGH Modbus.kTxBuffer   ; debug
+   movwf    FSR1H                   ; debug
+                                    ; debug
+copyLoop:                           ; debug
+   movf     FSR0L, W                ; debug
+   cpfseq   Modbus.MsgTail          ; debug
+     bra    copyIt                  ; debug
+                                    ; debug
+   movf     FSR0H, W                ; debug
+   cpfseq   Modbus.MsgTail + 1      ; debug
+     bra    copyIt                  ; debug
 
    ; Change state and enable the character transmitted interrupt.  If the transmit
    ; buffer is empty, this will fire immediately, otherwise it will trigger after
@@ -202,12 +200,12 @@ copyLoop:                        ; debug
    CopyWord FSR1L, Modbus.MsgTail
    movlw    Modbus.kState_EmitStart ; prepare to transmit the message
    movwf    Modbus.State
-   bsf      PIE1, TXIE           ; enable the interrupt
+   bsf      PIE1, TXIE              ; enable the interrupt
    return
 
-copyIt:                          ; debug
-   movff    POSTINC0, POSTINC1   ; debug
-   bra      copyLoop             ; debug
+copyIt:                             ; debug
+   movff    POSTINC0, POSTINC1      ; debug
+   bra      copyLoop                ; debug
 
 
 
@@ -270,6 +268,195 @@ valChecksum:
    ; Success, so clear our earlier assumption about a bad checksum.
    bcf      Modbus.Event, Modbus.kRxEvt_CommErr
    retlw    0
+
+
+
+;; ----------------------------------------------
+;;  byte Modbus.dispatchMsg()
+;;
+Modbus.dispatchMsg:
+   movlw    Modbus.kReadFIFOQueue + 1
+   cpfslt   Modbus.kRxFunction      ; is the function in the first 24?
+     bra    outliers                ; no, check higher codes
+
+   ; Jump to the correct handler using a computed GOTO.
+   movlw    Modbus.kRxFunction
+   addwf    PCL
+
+   ; Vector table.
+   nop                              ; [0 undefined]
+   bra      readCoils
+   bra      readDiscretes
+   bra      readRegisters
+   bra      readInputs
+   bra      writeCoil
+   bra      writeRegister
+   bra      getExceptions
+   bra      diagnostics
+   nop                              ; [9 reserved]
+   nop                              ; [10 reserved]
+   bra      getEventCount
+   bra      getEventLog
+   nop                              ; [13 reserved]
+   nop                              ; [14 reserved]
+   bra      writeCoils
+   bra      writeRegisters
+   bra      getSlaveId
+   nop                              ; [18 reserved]
+   nop                              ; [19 reserved]
+   bra      readFileRecord
+   bra      writeFileRecord
+   bra      writeRegMask
+   bra      readWriteRegs
+   bra      readFIFOQueue
+
+outliers:
+   ; [TODO] This must handle the Encapsulated Interface Transport (as well as our
+   ; own protocol extensions).
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+diagnostics:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getEventCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getEventLog:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getExceptions:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getSlaveId:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+readCoils:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+readDiscretes:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+readFIFOQueue:
+
+
+
+;; ----------------------------------------------
+;;
+;;
+readFileRecord:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+readInputs:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+readRegisters:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+readWriteRegs:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+writeCoil:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+writeCoils:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+writeFileRecord:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+writeRegister:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+writeRegisters:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+writeRegMask:
+   return
 
 
 
