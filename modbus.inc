@@ -57,6 +57,17 @@ Modbus.kDiagClearOverrun      equ   20
 Modbus.kEncapCANopen          equ   13
 Modbus.kEncapGetDeviceId      equ   14
 
+; Possible exception codes.
+Modbus.kErrorBadFunction      equ   1
+Modbus.kErrorBadAddress       equ   2
+Modbus.kErrorBadData          equ   3
+Modbus.kErrorFailure          equ   4
+Modbus.kErrorAcknowledge      equ   5
+Modbus.kErrorBusy             equ   6
+Modbus.kErrorNAKSent          equ   7
+Modbus.kErrorMemoryParity     equ   8
+Modbus.kErrorGateway          equ   10
+
 ; State machine constants.
 Modbus.kState_Init            equ   0
 Modbus.kState_Idle            equ   1
@@ -114,3 +125,8 @@ Modbus.kASCIIBufLen           equ   0x201
 Modbus.kRxSlave               equ   Modbus.kRxBuffer
 Modbus.kRxFunction            equ   Modbus.kRxBuffer + 1
 Modbus.kRxSubFunction         equ   Modbus.kRxBuffer + 2
+
+Modbus.kTxSlave               equ   Modbus.kTxBuffer
+Modbus.kTxFunction            equ   Modbus.kTxBuffer + 1
+Modbus.kTxSubFunction         equ   Modbus.kTxBuffer + 2
+Modbus.kTxErrorCode           equ   Modbus.kTxBuffer + 2

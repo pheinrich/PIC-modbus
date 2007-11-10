@@ -21,12 +21,14 @@
    global   Modbus.Address
    global   Modbus.Event
    global   Modbus.Checksum
+   global   Modbus.HookVTbl
    global   Modbus.MsgHead
    global   Modbus.MsgTail
    global   Modbus.NoChecksum
    global   Modbus.State
 
    ; Public Methods
+   global   Modbus.buildErrorReply
    global   Modbus.dispatchMsg
    global   Modbus.getFrameByte
    global   Modbus.init
@@ -57,6 +59,7 @@ Modbus.Event            res   1  ; kRxEvt_CommErr, kRxEvt_Broadcast, kTxEvt_Abor
 Modbus.NoChecksum       res   1  ; 0 = false (default), 255 = true
 Modbus.State            res   1  ; current state of the state machine
 
+Modbus.HookVTbl         res   2  ; Pointer to the app-supplied virtual function table.
 Modbus.Checksum         res   2  ; LRC or CRC, depending on mode (ASCII or RTU)
 Modbus.MsgHead          res   2  ; points to the first byte in the message
 Modbus.MsgTail          res   2  ; points to next location to be read or written
@@ -66,6 +69,111 @@ Modbus.MsgTail          res   2  ; points to next location to be read or written
 ;; ---------------------------------------------------------------------------
 .modbus                 code
 ;; ---------------------------------------------------------------------------
+
+;; ----------------------------------------------
+;;  void Modbus.buildErrorReply()
+;;
+Modbus.buildErrorReply:
+   ; Copy the device id from the original message, as well as the function code,
+   ; but with the MSb set to indicate an error occured.
+   movff    Modbus.kRxSlave, Modbus.kTxSlave
+   movff    Modbus.kRxFunction, Modbus.kTxFunction
+   movlb    2
+   bsf      Modbus.kTxFunction, 7, BANKED
+
+   ; Add the specified exception code to the message.
+   movwf    Modbus.kTxErrorCode, BANKED
+
+   ; Based on the exception code, we need to update our event log.
+   movlw    Modbus.kErrorBadData
+   cpfsgt   Modbus.kTxErrorCode, BANKED
+     bsf    Modbus.Event, Modbus.kTxEvt_ReadEx
+
+   movlw    Modbus.kErrorFailure
+   cpfsgt   Modbus.kTxErrorCode, BANKED
+     bsf    Modbus.Event, Modbus.kTxEvt_AbortEx
+
+   movlw    Modbus.kErrorBusy
+   cpfsgt   Modbus.kTxErrorCode, BANKED
+     bsf    Modbus.Event, Modbus.kTxEvt_BusyEx
+
+   movlw    Modbus.kErrorNAKSent
+   cpfsgt   Modbus.kTxErrorCode, BANKED
+     bsf    Modbus.Event, Modbus.kTxEvt_NAKEx
+
+   return
+
+
+
+;; ----------------------------------------------
+;;  void Modbus.dispatchMsg()
+;;
+Modbus.dispatchMsg:
+   ; Load the VTbl base address.
+   movff    Modbus.HookVTbl, TBLPTRL
+   movff    Modbus.HookVTbl, TBLPTRH
+   clrf     TBLPTRU
+
+lookup:
+   ; Find the correct function pointer, based on the function code found in the
+   ; currently active message.  The virtual function table (VTbl) is a series of
+   ; key-value pairs, with the key being an integer function code and the value
+   ; being the address of the corresponding handler method.
+   tblrd*+
+   tblrd*+
+   movf     TABLAT, W               ; read the key (lower 8 bits of entry)
+   bn       vtblEnd                 ; the VTbl will end with a -1 entry
+   cpfseq   Modbus.kRxFunction      ; is this the function requested?
+     bra    lookup                  ; no, advance to the next entry
+
+   ; Dispatch to the correct method.  Push the current PC, then replace the pushed
+   ; address with the VTbl entry and RETURN to jump through the function pointer. 
+   push
+   tblrd*+
+   movf     TABLAT, W               ; can't movff to TOSL
+   movwf    TOSL
+   tblrd*+
+   movf     TABLAT, W               ; can't movff to TOSH, either
+   movwf    TOSH
+   return
+
+vtblEnd:
+   ; The application doesn't support the function code requested, but it may be
+   ; one of the four we handle by default.  Check for one of those.
+   movlw    Modbus.kDiagnostics
+   cpfseq   Modbus.kRxFunction      ; is it the diagnostics request?
+     bra    chkGetLog               ; no, check next possibility
+
+   return
+
+chkGetLog:
+   movlw    Modbus.kGetEventCount
+   cpfseq   Modbus.kRxFunction      ; is it a request for the current size of the event log?
+     bra    chkGetEvts              ; no, check for the next possibility
+
+   return
+   
+chkGetEvts:
+   movlw    Modbus.kGetEventLog
+   cpfseq   Modbus.kRxFunction      ; is it a request to retrieve the entire event log?
+     bra    chkGetId                ; no, check for the next possibility
+
+   return
+
+chkGetId:
+   movlw    Modbus.kGetSlaveId
+   cpfseq   Modbus.kRxFunction      ; is it a request to determine the device's id?
+     bra    unsupported             ; no, the function code is unsupported
+
+   return
+
+unsupported:
+   ; The function code requested wasn't recognized, so we have no choice but to
+   ; return a reply containing exception code 1 (unsupported function).
+   movlw    Modbus.kErrorBadFunction
+   bra      Modbus.buildErrorReply
+
+
 
 ;; ----------------------------------------------
 ;;  byte Modbus.getFrameByte()
@@ -197,7 +305,7 @@ copyLoop:                           ; debug
    ; Change state and enable the character transmitted interrupt.  If the transmit
    ; buffer is empty, this will fire immediately, otherwise it will trigger after
    ; the current byte is transmitted.
-   CopyWord FSR1L, Modbus.MsgTail
+   CopyWord FSR1L, Modbus.MsgTail   ; debug
    movlw    Modbus.kState_EmitStart ; prepare to transmit the message
    movwf    Modbus.State
    bsf      PIE1, TXIE              ; enable the interrupt
@@ -272,52 +380,6 @@ valChecksum:
 
 
 ;; ----------------------------------------------
-;;  byte Modbus.dispatchMsg()
-;;
-Modbus.dispatchMsg:
-   movlw    Modbus.kReadFIFOQueue + 1
-   cpfslt   Modbus.kRxFunction      ; is the function in the first 24?
-     bra    outliers                ; no, check higher codes
-
-   ; Jump to the correct handler using a computed GOTO.
-   movlw    Modbus.kRxFunction
-   addwf    PCL
-
-   ; Vector table.
-   nop                              ; [0 undefined]
-   bra      readCoils
-   bra      readDiscretes
-   bra      readRegisters
-   bra      readInputs
-   bra      writeCoil
-   bra      writeRegister
-   bra      getExceptions
-   bra      diagnostics
-   nop                              ; [9 reserved]
-   nop                              ; [10 reserved]
-   bra      getEventCount
-   bra      getEventLog
-   nop                              ; [13 reserved]
-   nop                              ; [14 reserved]
-   bra      writeCoils
-   bra      writeRegisters
-   bra      getSlaveId
-   nop                              ; [18 reserved]
-   nop                              ; [19 reserved]
-   bra      readFileRecord
-   bra      writeFileRecord
-   bra      writeRegMask
-   bra      readWriteRegs
-   bra      readFIFOQueue
-
-outliers:
-   ; [TODO] This must handle the Encapsulated Interface Transport (as well as our
-   ; own protocol extensions).
-   return
-
-
-
-;; ----------------------------------------------
 ;;
 ;;
 diagnostics:
@@ -344,118 +406,7 @@ getEventLog:
 ;; ----------------------------------------------
 ;;
 ;;
-getExceptions:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
 getSlaveId:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-readCoils:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-readDiscretes:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-readFIFOQueue:
-
-
-
-;; ----------------------------------------------
-;;
-;;
-readFileRecord:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-readInputs:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-readRegisters:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-readWriteRegs:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-writeCoil:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-writeCoils:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-writeFileRecord:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-writeRegister:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-writeRegisters:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-writeRegMask:
    return
 
 
