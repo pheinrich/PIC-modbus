@@ -54,15 +54,15 @@
                         udata_acs
 ;; ---------------------------------------------------------------------------
 
-Modbus.Address          res   1  ; uniquely identifies this device on the bus
-Modbus.Event            res   1  ; kRxEvt_CommErr, kRxEvt_Broadcast, kTxEvt_Abort, etc.
-Modbus.NoChecksum       res   1  ; 0 = false (default), 255 = true
-Modbus.State            res   1  ; current state of the state machine
+Modbus.Address          res   1     ; uniquely identifies this device on the bus
+Modbus.Event            res   1     ; kRxEvt_CommErr, kRxEvt_Broadcast, kTxEvt_Abort, etc.
+Modbus.NoChecksum       res   1     ; 0 = false (default), 255 = true
+Modbus.State            res   1     ; current state of the state machine
 
-Modbus.HookVTbl         res   2  ; Pointer to the app-supplied virtual function table.
-Modbus.Checksum         res   2  ; LRC or CRC, depending on mode (ASCII or RTU)
-Modbus.MsgHead          res   2  ; points to the first byte in the message
-Modbus.MsgTail          res   2  ; points to next location to be read or written
+Modbus.HookVTbl         res   2     ; Pointer to the app-supplied virtual function table.
+Modbus.Checksum         res   2     ; LRC or CRC, depending on mode (ASCII or RTU)
+Modbus.MsgHead          res   2     ; points to the first byte in the message
+Modbus.MsgTail          res   2     ; points to next location to be read or written
 
 
 
@@ -85,22 +85,29 @@ Modbus.buildErrorReply:
    movwf    Modbus.kTxErrorCode, BANKED
 
    ; Based on the exception code, we need to update our event log.
-   movlw    Modbus.kErrorBadData
-   cpfsgt   Modbus.kTxErrorCode, BANKED
-     bsf    Modbus.Event, Modbus.kTxEvt_ReadEx
-
-   movlw    Modbus.kErrorFailure
-   cpfsgt   Modbus.kTxErrorCode, BANKED
-     bsf    Modbus.Event, Modbus.kTxEvt_AbortEx
-
-   movlw    Modbus.kErrorBusy
-   cpfsgt   Modbus.kTxErrorCode, BANKED
-     bsf    Modbus.Event, Modbus.kTxEvt_BusyEx
+   movlw    Modbus.kErrorMemoryParity
+   cpfslt   Modbus.kTxErrorCode, BANKED
+     bra    setTail
 
    movlw    Modbus.kErrorNAKSent
-   cpfsgt   Modbus.kTxErrorCode, BANKED
+   cpfslt   Modbus.kTxErrorCode, BANKED
      bsf    Modbus.Event, Modbus.kTxEvt_NAKEx
 
+   movlw    Modbus.kErrorBusy
+   cpfslt   Modbus.kTxErrorCode, BANKED
+     bsf    Modbus.Event, Modbus.kTxEvt_BusyEx
+
+   movlw    Modbus.kErrorFailure
+   cpfslt   Modbus.kTxErrorCode, BANKED
+     bsf    Modbus.Event, Modbus.kTxEvt_AbortEx
+   bsf      Modbus.Event, Modbus.kTxEvt_ReadEx
+
+setTail:
+   ; Set the message tail pointer to one byte past the error code.
+   movlw    LOW (Modbus.kTxErrorCode + 1)
+   movwf    Modbus.MsgTail
+   movlw    HIGH (Modbus.kTxErrorCode + 1)
+   movwf    Modbus.MsgTail + 1
    return
 
 
@@ -111,8 +118,13 @@ Modbus.buildErrorReply:
 Modbus.dispatchMsg:
    ; Load the VTbl base address.
    movff    Modbus.HookVTbl, TBLPTRL
-   movff    Modbus.HookVTbl, TBLPTRH
+   movff    Modbus.HookVTbl + 1, TBLPTRH
    clrf     TBLPTRU
+
+   ; Prepare for the table lookup loop.
+   movlb    1                       ; for function code comparison
+   tblrd*-                          ; back up two bytes to account for iteration loop
+   tblrd*-
 
 lookup:
    ; Find the correct function pointer, based on the function code found in the
@@ -121,8 +133,10 @@ lookup:
    ; being the address of the corresponding handler method.
    tblrd*+
    tblrd*+
+   tblrd*+
    movf     TABLAT, W               ; read the key (lower 8 bits of entry)
    bn       vtblEnd                 ; the VTbl will end with a -1 entry
+   tblrd*+
    cpfseq   Modbus.kRxFunction      ; is this the function requested?
      bra    lookup                  ; no, advance to the next entry
 
@@ -215,9 +229,9 @@ getByte:
 ;;
 Modbus.init:
    ; The operating mode determines which state machine will be active.
-   movf     Util.Frame, F        ; are we in ASCII (7-bit) mode?
-   bz       initRTU              ; no, initialize RTU mode
-   call     ASCII.init           ; yes, initialize ASCII mode
+   movf     Util.Frame, F           ; are we in ASCII (7-bit) mode?
+   bz       initRTU                 ; no, initialize RTU mode
+   call     ASCII.init              ; yes, initialize ASCII mode
    bra      initDiag
 
 initRTU:
@@ -228,8 +242,8 @@ initDiag:
    ; above needs to hook the rx/tx events first.  Note that the stackframe must
    ; be preserved until the then, since it holds the USART initialization para-
    ; meters.
-   call     Diag.init            ; reset diagnostic registers and event log
-   goto     USART.init           ; initialize the serial port
+   call     Diag.init               ; reset diagnostic registers and event log
+   goto     USART.init              ; initialize the serial port
 
 
 
@@ -243,17 +257,17 @@ Modbus.isr:
    call     USART.isr
    
    ; Determine if our timer overflowed.
-   btfss    PIE1, TMR1IE      ; are timer1 interrupts enabled?
-     return                   ; no, we can exit
-   btfss    PIR1, TMR1IF      ; yes, has timer1 expired?
-     return                   ; no, we're done
+   btfss    PIE1, TMR1IE            ; are timer1 interrupts enabled?
+     return                         ; no, we can exit
+   btfss    PIR1, TMR1IF            ; yes, has timer1 expired?
+     return                         ; no, we're done
 
    ; A timer1 event did occur.  We must delegate this event ourselves, since the
    ; USART isn't interested in it and doesn't provide a convenient hook.
-   bcf      PIR1, TMR1IF      ; clear the timer interrupt flag
-   btfss    RCSTA, RX9        ; are we in RTU (8-bit) mode?
-     goto   ASCII.isrTimeout  ; no, the ASCII (7-bit) state machine takes over
-   goto     RTU.isrTimeout    ; yes, the RTU state machine takes over
+   bcf      PIR1, TMR1IF            ; clear the timer interrupt flag
+   btfss    RCSTA, RX9              ; are we in RTU (8-bit) mode?
+     goto   ASCII.isrTimeout        ; no, the ASCII (7-bit) state machine takes over
+   goto     RTU.isrTimeout          ; yes, the RTU state machine takes over
 
 
 
@@ -274,7 +288,7 @@ Modbus.putFrameByte:
 
 
 ;; ----------------------------------------------
-;;  woid Modbus.replyMsg()
+;;  void Modbus.replyMsg()
 ;;
 ;;  Attempts to send the message in the message buffer, which is always in re-
 ;;  ply to a message we previously received.
@@ -287,33 +301,33 @@ Modbus.replyMsg:
      return                         ; no, bail
 
    ; DEBUG copy the received message to the transmit buffer (echo the message).
-   CopyWord Modbus.MsgHead, FSR0L   ; debug
-   movlw    LOW Modbus.kTxBuffer    ; debug
-   movwf    FSR1L                   ; debug
-   movlw    HIGH Modbus.kTxBuffer   ; debug
-   movwf    FSR1H                   ; debug
-                                    ; debug
-copyLoop:                           ; debug
-   movf     FSR0L, W                ; debug
-   cpfseq   Modbus.MsgTail          ; debug
-     bra    copyIt                  ; debug
-                                    ; debug
-   movf     FSR0H, W                ; debug
-   cpfseq   Modbus.MsgTail + 1      ; debug
-     bra    copyIt                  ; debug
+;   CopyWord Modbus.MsgHead, FSR0L   ; debug
+;   movlw    LOW Modbus.kTxBuffer    ; debug
+;   movwf    FSR1L                   ; debug
+;   movlw    HIGH Modbus.kTxBuffer   ; debug
+;   movwf    FSR1H                   ; debug
+;                                    ; debug
+;copyLoop:                           ; debug
+;   movf     FSR0L, W                ; debug
+;   cpfseq   Modbus.MsgTail          ; debug
+;     bra    copyIt                  ; debug
+;                                    ; debug
+;   movf     FSR0H, W                ; debug
+;   cpfseq   Modbus.MsgTail + 1      ; debug
+;     bra    copyIt                  ; debug
+;   CopyWord FSR1L, Modbus.MsgTail   ; debug
 
    ; Change state and enable the character transmitted interrupt.  If the transmit
    ; buffer is empty, this will fire immediately, otherwise it will trigger after
    ; the current byte is transmitted.
-   CopyWord FSR1L, Modbus.MsgTail   ; debug
    movlw    Modbus.kState_EmitStart ; prepare to transmit the message
    movwf    Modbus.State
    bsf      PIE1, TXIE              ; enable the interrupt
    return
 
-copyIt:                             ; debug
-   movff    POSTINC0, POSTINC1      ; debug
-   bra      copyLoop                ; debug
+;copyIt:                             ; debug
+;   movff    POSTINC0, POSTINC1      ; debug
+;   bra      copyLoop                ; debug
 
 
 
@@ -345,12 +359,12 @@ Modbus.resetFrame:
 Modbus.validateMsg:
    ; Verify the message is addressed to this device.
    bsf      Modbus.Event, Modbus.kRxEvt_Broadcast ; assume broadcast message
-   movf     Modbus.kRxBuffer, W  ; is this a broadcast message (0 == address)?
-   bz       valChecksum          ; yes, validate the checksum
+   movf     Modbus.kRxBuffer, W     ; is this a broadcast message (0 == address)?
+   bz       valChecksum             ; yes, validate the checksum
 
    bcf      Modbus.Event, Modbus.kRxEvt_Broadcast ; no, clear our assumption
-   cpfseq   Modbus.Address       ; is it addressed to this specific device?
-     retlw  0xff                 ; no, discard frame
+   cpfseq   Modbus.Address          ; is it addressed to this specific device?
+     retlw  0xff                    ; no, discard frame
 
 valChecksum:
    ; This message is addressed to us.
@@ -365,13 +379,13 @@ valChecksum:
    bsf      Modbus.Event, Modbus.kRxEvt_CommErr ; assume checksum fails
 
    ; Compare the checksum included in the message to the one we calculated.
-   movf     POSTINC0, W          ; fetch the LSB
-   cpfseq   Modbus.Checksum      ; does it match the computed value?
-     retlw  0xff                 ; no, discard the frame  TODO: log event
+   movf     POSTINC0, W             ; fetch the LSB
+   cpfseq   Modbus.Checksum         ; does it match the computed value?
+     retlw  0xff                    ; no, discard the frame  TODO: log event
 
-   movf     INDF0, W             ; yes, fetch the MSB
-   cpfseq   Modbus.Checksum + 1  ; does it match the computed value?
-     retlw  0xff                 ; no, discard the frame  TODO: log event
+   movf     INDF0, W                ; yes, fetch the MSB
+   cpfseq   Modbus.Checksum + 1     ; does it match the computed value?
+     retlw  0xff                    ; no, discard the frame  TODO: log event
 
    ; Success, so clear our earlier assumption about a bad checksum.
    bcf      Modbus.Event, Modbus.kRxEvt_CommErr

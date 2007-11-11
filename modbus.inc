@@ -128,5 +128,5 @@ Modbus.kRxSubFunction         equ   Modbus.kRxBuffer + 2
 
 Modbus.kTxSlave               equ   Modbus.kTxBuffer
 Modbus.kTxFunction            equ   Modbus.kTxBuffer + 1
+Modbus.kTxErrorCode           equ   Modbus.kTxBuffer + 1
 Modbus.kTxSubFunction         equ   Modbus.kTxBuffer + 2
-Modbus.kTxErrorCode           equ   Modbus.kTxBuffer + 2

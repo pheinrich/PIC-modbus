@@ -61,17 +61,17 @@ kOneSecond              equ   1 + (kFrequency / (4 * 65536))
 ;;
 ResetTimer1             macro
    movlw    kOneSecond
-   movwf    ASCII.Timeouts       ; prepare to measure 1 second
+   movwf    ASCII.Timeouts          ; prepare to measure 1 second
 
    ; Stop the timer and prepare to initialize its countdown period.
    movlw    b'10000000'
-            ; 1------- RD16      ; enable 16-bit read/write operations
-            ; -X------           ; [unimplemented]
-            ; --00---- T1CKPS    ; 1:1 prescaler
-            ; ----0--- T1OSCEN   ; disable external oscillator
-            ; -----X-- T1SYNC    ; [not used when using internal clock]
-            ; ------0- TMR1CS    ; use internal clock
-            ; -------0 TMR1ON    ; disable timer, for now
+            ; 1------- RD16         ; enable 16-bit read/write operations
+            ; -X------              ; [unimplemented]
+            ; --00---- T1CKPS       ; 1:1 prescaler
+            ; ----0--- T1OSCEN      ; disable external oscillator
+            ; -----X-- T1SYNC       ; [not used when using internal clock]
+            ; ------0- TMR1CS       ; use internal clock
+            ; -------0 TMR1ON       ; disable timer, for now
    movwf    T1CON
 
    ; Set the countdown period to the maximum.
@@ -79,9 +79,9 @@ ResetTimer1             macro
    clrf     TMR1L
 
    ; Start the timer.
-   bsf      PIE1, TMR1IE         ; enable associated overflow interrupt
-   bsf      T1CON, TMR1ON        ; enable timer
-   bcf      PIR1, TMR1IF         ; clear the timer interrupt flag
+   bsf      PIE1, TMR1IE            ; enable associated overflow interrupt
+   bsf      T1CON, TMR1ON           ; enable timer
+   bcf      PIR1, TMR1IF            ; clear the timer interrupt flag
    endm
 
 
@@ -90,8 +90,8 @@ ResetTimer1             macro
 .modeovr                access_ovr
 ;; ---------------------------------------------------------------------------
 
-ASCII.Delimiter         res   1  ; frame delimiter character
-ASCII.Timeouts          res   1  ; supports extra long (>1s) delays
+ASCII.Delimiter         res   1     ; frame delimiter character
+ASCII.Timeouts          res   1     ; supports extra long (>1s) delays
 
 
 
@@ -114,12 +114,12 @@ ASCII.init:
    movwf    Modbus.State
 
    ; Hook the serial port.
-   movlw    LOW ASCII.isrRx	 ; set the reception callback
+   movlw    LOW ASCII.isrRx	   ; set the reception callback
    movwf    USART.HookRx
    movlw    HIGH ASCII.isrRx
    movwf    USART.HookRx + 1
 
-   movlw    LOW ASCII.isrTx	 ; set the transmission callback
+   movlw    LOW ASCII.isrTx	   ; set the transmission callback
    movwf    USART.HookTx
    movlw    HIGH ASCII.isrTx
    movwf    USART.HookTx + 1
@@ -139,13 +139,13 @@ ASCII.isrRx:
    ; Determine the state of the state machine, since characters received at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Idle
-   cpfseq   Modbus.State         ; is state machine in idle state?
-     bra    rxReception          ; no, check if reception state
+   cpfseq   Modbus.State            ; is state machine in idle state?
+     bra    rxReception             ; no, check if reception state
 
    ; Idle State:  reception of a colon (":") here indicates the start of a frame.
    movlw    ':'
-   cpfseq   USART.Read           ; was a colon receieved?
-     return                      ; no, we can exit
+   cpfseq   USART.Read              ; was a colon receieved?
+     return                         ; no, we can exit
 
 rxReceive:
    movlw    Modbus.kState_Reception ; yes, enter reception mode
@@ -156,28 +156,28 @@ rxReset:
    call     Modbus.resetFrame
 
 rxTimer:
-   ResetTimer1                   ; reset the inter-character delay timeout
-   return                        ; note that the SOF character isn't buffered
+   ResetTimer1                      ; reset the inter-character delay timeout
+   return                           ; note that the SOF character isn't buffered
 
 rxReception:
    ; Check for the next state concerned with received characters.
    movlw    Modbus.kState_Reception
-   cpfseq   Modbus.State         ; is state machine in reception state?
-     bra    rxWaiting            ; no, check if waiting state
+   cpfseq   Modbus.State            ; is state machine in reception state?
+     bra    rxWaiting               ; no, check if waiting state
 
    ; Reception State:  received characters are buffered as part of the frame in
    ; progress unless a colon (":"), in which case the frame is reset, or carriage
    ; return, in which case we switch to waiting mode.
    movlw    ':'
-   subwf    USART.Read, W        ; was a colon received?
-   bz       rxReset              ; yes, reset the frame pointer and exit
+   subwf    USART.Read, W           ; was a colon received?
+   bz       rxReset                 ; yes, reset the frame pointer and exit
 
    movlw    '\r'
-   cpfseq   USART.Read           ; was a carriage return received?
-     bra    rxStash              ; no, buffer the character
+   cpfseq   USART.Read              ; was a carriage return received?
+     bra    rxStash                 ; no, buffer the character
 
    ; A carriage return was received.
-   movlw    Modbus.kState_Waiting ; enter waiting state
+   movlw    Modbus.kState_Waiting   ; enter waiting state
    movwf    Modbus.State
    bra      rxTimer
 
@@ -190,30 +190,30 @@ rxStash:
 rxWaiting:
    ; Check for the next state concerned with received characters.
    movlw    Modbus.kState_Waiting
-   cpfseq   Modbus.State         ; is state machine in waiting state?
-     return                      ; no, we can exit
+   cpfseq   Modbus.State            ; is state machine in waiting state?
+     return                         ; no, we can exit
 
    ; Waiting State:  after a carriage return is received, this state waits for the
    ; end of frame marker specified by ASCII.Delimiter (usually linefeed, 0xd).  If
    ; a colon is received first, the frame is reset instead.
    movlw    ':'
-   subwf    USART.Read, W        ; was a colon received?
-   bz       rxReceive            ; yes, clear buffer and move to reception state
+   subwf    USART.Read, W           ; was a colon received?
+   bz       rxReceive               ; yes, clear buffer and move to reception state
 
    movf     ASCII.Delimiter, W
-   cpfseq   USART.Read           ; was a linefeed (or alternative delimiter) received?
-     return                      ; no, keep waiting
+   cpfseq   USART.Read              ; was a linefeed (or alternative delimiter) received?
+     return                         ; no, keep waiting
 
    ; A frame delimiter was received.  Rewind the message tail to back up past the
    ; last two characters, since they represent the checksum computed by the send-
    ; er, which we don't want to include in our checksum calculation.
-   bcf      PIE1, TMR1IE         ; disable timer1 interrupts
+   bcf      PIE1, TMR1IE            ; disable timer1 interrupts
    movlw    (1 << Modbus.kRxEvt_CommErr) | (1 << Modbus.kRxEvt_Overrun)
-   andwf    Modbus.Event, W      ; were there communication errors?
-   bnz      rxDone               ; yes, discard the frame
-   CopyWord Modbus.MsgTail, FSR1L ; save the old value for later
+   andwf    Modbus.Event, W         ; were there communication errors?
+   bnz      rxDone                  ; yes, discard the frame
+   CopyWord Modbus.MsgTail, FSR1L   ; save the old value for later
 
-   movlw    0x2                  ; rewind 2 characters
+   movlw    0x2                     ; rewind 2 characters
    subwf    Modbus.MsgTail, F
    movlw    0x0
    subwfb   Modbus.MsgTail + 1, F
@@ -226,21 +226,21 @@ rxWaiting:
    rcall    ascii2rtu
 
    call     Modbus.validateMsg
-   tstfsz   WREG                 ; was the validation successful?
-     bra    rxDone               ; no, discard the frame
+   tstfsz   WREG                    ; was the validation successful?
+     bra    rxDone                  ; no, discard the frame
 
    ; No reception errors, no checksum errors, and the message is addressed to us.
    movlw    Modbus.kState_MsgQueued ; alert the main event loop that a message has arrived
    movwf    Modbus.State
-   goto     Diag.logRxEvt        ; log the receive event in the event log
+   goto     Diag.logRxEvt           ; log the receive event in the event log
 
 rxDone:
    ; There was a communication error (parity, overrun, checksum) or the message
    ; simply wasn't addressed to us.
-   movlw    Modbus.kState_Idle   ; be ready to receive the next message
+   movlw    Modbus.kState_Idle      ; be ready to receive the next message
    movwf    Modbus.State
    bsf      Modbus.Event, Modbus.kRxEvt_NoResponse
-   goto     Diag.logRxEvt        ; log the receive event in the event log
+   goto     Diag.logRxEvt           ; log the receive event in the event log
 
    
 
@@ -256,21 +256,21 @@ ASCII.isrTimeout:
    ; Determine the state of the state machine.  A timeout while receiving or wait-
    ; ing means the frame has gone stale.
    movlw    Modbus.kState_Reception
-   subwf    Modbus.State, W      ; is state machine in reception state?
-   bz       timeoutUpdate        ; yes, update our long timer
+   subwf    Modbus.State, W         ; is state machine in reception state?
+   bz       timeoutUpdate           ; yes, update our long timer
 
-   movlw    Modbus.kState_Waiting ; no, check next state
-   cpfseq   Modbus.State         ; is state machine in waiting state?
-     return                      ; no, we can exit
+   movlw    Modbus.kState_Waiting   ; no, check next state
+   cpfseq   Modbus.State            ; is state machine in waiting state?
+     return                         ; no, we can exit
 
 timeoutUpdate:
    ; The timer fired, so decrement the timeout count.  Once that count has reached
    ; 0, our "long" timer has elapsed and we can assume the frame is incomplete.
-   decfsz   ASCII.Timeouts, F    ; has 1 second expired?
-     return                      ; no, keep waiting
+   decfsz   ASCII.Timeouts, F       ; has 1 second expired?
+     return                         ; no, keep waiting
 
    bsf      Modbus.Event, Modbus.kRxEvt_CommErr; yes, so frame is incomplete
-   bcf      PIE1, TMR1IE         ; disable redundant timer1 interrupts
+   bcf      PIE1, TMR1IE            ; disable redundant timer1 interrupts
    return
 
 
@@ -286,9 +286,9 @@ ASCII.isrTx:
 
    ; Emit Start State:  a message reply we want to send is waiting in kASCIIBuffer,
    ; but we must calculate its checksum before we can transmit it.
-   rcall    rtu2ascii      ; convert to ASCII mode first
+   rcall    rtu2ascii               ; convert to ASCII mode first
    lfsr     FSR0, Modbus.kASCIIBuffer
-   rcall    calcLRC        ; calculate the checksum
+   rcall    calcLRC                 ; calculate the checksum
 
    ; Store the checksum at the end of the message buffer and update the tail.
    movf     Modbus.Checksum, W
@@ -318,9 +318,9 @@ txEmission:
    call     Modbus.getFrameByte
    bnc      txStash
 
-   movlw    Modbus.kState_EmitEnd ; switch state
+   movlw    Modbus.kState_EmitEnd   ; switch state
    movwf    Modbus.State
-   movlw    '\r'                 ; send first frame delimiter character
+   movlw    '\r'                    ; send first frame delimiter character
 
 txStash:
    ; Transmit the character.  Parity will be calculated and and set automatically
@@ -371,17 +371,17 @@ txEmitDone:
 ascii2rtu:
    ; Initialize some pointers.
    lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = message head (ASCII)
-   lfsr     FSR2, Modbus.kRxBuffer ; FSR2 = message tail (RTU)
+   lfsr     FSR2, Modbus.kRxBuffer  ; FSR2 = message tail (RTU)
 
 a2rLoop:
    ; Compare the head and tail pointers.
    movf     FSR0L, W
-   cpfseq   FSR1L                ; are low bytes equal?
-     bra    a2rUpdate            ; no, keep going
+   cpfseq   FSR1L                   ; are low bytes equal?
+     bra    a2rUpdate               ; no, keep going
 
    movf     FSR0H, W
-   cpfseq   FSR1H                ; are high bytes equal?
-     bra    a2rUpdate            ; no, keep going
+   cpfseq   FSR1H                   ; are high bytes equal?
+     bra    a2rUpdate               ; no, keep going
 
    ; The head and tail pointers are equal, so we're done.  The last thing we do is
    ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
@@ -392,19 +392,19 @@ a2rLoop:
 
 a2rUpdate:
    ; Read the next two characters and combine them into a single byte.
-   movf     POSTINC0, W          ; read the first character
-   call     Util.char2hex        ; convert to nybble
+   movf     POSTINC0, W             ; read the first character
+   call     Util.char2hex           ; convert to nybble
    swapf    WREG, W
    movwf    Util.Volatile
 
-   movf     POSTINC0, W          ; read the second character
-   call     Util.char2hex        ; convert to nybble
+   movf     POSTINC0, W             ; read the second character
+   call     Util.char2hex           ; convert to nybble
    iorwf    Util.Volatile, W
 
    ; Store the byte back into buffer.  We'll never catch up to our read pointer
    ; since it's moving twice as fast.
    movwf    POSTINC2
-   bra      a2rLoop              ; go back for the next pair
+   bra      a2rLoop                 ; go back for the next pair
 
 
 
@@ -422,28 +422,28 @@ a2rUpdate:
 ;;
 calcLRC:
    ; Initialize the checksum and a pointer to the message buffer.
-   clrf     Modbus.Checksum      ; LRC starts at 0
+   clrf     Modbus.Checksum         ; LRC starts at 0
    clrf     Modbus.Checksum + 1
 
 lrcLoop:
    ; Compare the head and tail pointers.
    movf     FSR0L, W
-   cpfseq   Modbus.MsgTail       ; are low bytes equal?
-     bra    lrcUpdate            ; no, keep going
+   cpfseq   Modbus.MsgTail          ; are low bytes equal?
+     bra    lrcUpdate               ; no, keep going
 
    movf     FSR0H, W
-   cpfseq   Modbus.MsgTail + 1   ; are high bytes equal?
-     bra    lrcUpdate            ; no, keep going
+   cpfseq   Modbus.MsgTail + 1      ; are high bytes equal?
+     bra    lrcUpdate               ; no, keep going
 
    ; The head and tail pointers are equal, so we're done.
-   negf     Modbus.Checksum      ; LRC is 2s complement of actual sum
+   negf     Modbus.Checksum         ; LRC is 2s complement of actual sum
    return
 
 lrcUpdate:
    ; Update the checksum with the current character.
-   movf     POSTINC0, W          ; read the charecter at head
-   addwf    Modbus.Checksum, F   ; add to sum, discarding carry
-   bra      lrcLoop              ; go back for the next one
+   movf     POSTINC0, W             ; read the charecter at head
+   addwf    Modbus.Checksum, F      ; add to sum, discarding carry
+   bra      lrcLoop                 ; go back for the next one
 
 
 
@@ -456,18 +456,18 @@ lrcUpdate:
 ;;
 rtu2ascii:
    ; Initialize some pointers.
-   lfsr     FSR0, Modbus.kTxBuffer ; FSR0 = message head (RTU)
+   lfsr     FSR0, Modbus.kTxBuffer  ; FSR0 = message head (RTU)
    lfsr     FSR2, Modbus.kASCIIBuffer ; FSR2 = message tail (ASCII)
 
 r2aLoop:
    ; Compare the head and tail pointers.
    movf     FSR0L, W
-   cpfseq   Modbus.MsgTail       ; are low bytes equal?
-     bra    r2aUpdate            ; no, keep going
+   cpfseq   Modbus.MsgTail          ; are low bytes equal?
+     bra    r2aUpdate               ; no, keep going
 
    movf     FSR0H, W
-   cpfseq   Modbus.MsgTail + 1   ; are high bytes equal?
-     bra    r2aUpdate            ; no, keep going
+   cpfseq   Modbus.MsgTail + 1      ; are high bytes equal?
+     bra    r2aUpdate               ; no, keep going
 
    ; The head and tail pointers are equal, so we're done.
    CopyWord FSR2L, Modbus.MsgTail
@@ -475,16 +475,16 @@ r2aLoop:
 
 r2aUpdate:
    ; Convert the high nybble of the next byte to an ASCII character.
-   movf     INDF0, W             ; read the byte, but don't advance the pointer
-   swapf    WREG, W              ; process the high nybble first
+   movf     INDF0, W                ; read the byte, but don't advance the pointer
+   swapf    WREG, W                 ; process the high nybble first
    call     Util.hex2char
-   movwf    POSTINC2             ; store it in the kASCIIBuffer
+   movwf    POSTINC2                ; store it in the kASCIIBuffer
 
    ; Convert the low nybble of the same byte.
-   movf     POSTINC0, W          ; re-read the byte and advance this time
+   movf     POSTINC0, W             ; re-read the byte and advance this time
    call     Util.hex2char
-   movwf    POSTINC2             ; store it
-   bra      r2aLoop              ; go back for the next byte
+   movwf    POSTINC2                ; store it
+   bra      r2aLoop                 ; go back for the next byte
 
 
 

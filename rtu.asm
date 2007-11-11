@@ -37,6 +37,7 @@
    extern   Modbus.validateMsg
    extern   USART.HookRx
    extern   USART.HookTx
+   extern   USART.Read
    extern   USART.send
    extern   Util.Frame
 
@@ -175,12 +176,12 @@ copyDelays:
      bra    $-6
 
    ; Hook the serial port.
-   movlw    LOW RTU.isrRx	 ; set the reception callback
+   movlw    LOW RTU.isrRx	         ; set the reception callback
    movwf    USART.HookRx
    movlw    HIGH RTU.isrRx
    movwf    USART.HookRx + 1
 
-   movlw    LOW RTU.isrTx	 ; set the transmission callback
+   movlw    LOW RTU.isrTx	         ; set the transmission callback
    movwf    USART.HookTx
    movlw    HIGH RTU.isrTx
    movwf    USART.HookTx + 1
@@ -236,6 +237,7 @@ rxReception:
 rxStash:
    ; Reception State:  characters received now are buffered until a character gap
    ; is detected.
+   movf     USART.Read, W
    call     Modbus.putFrameByte
    TIMER1   CharTimeout             ; reset the character timeout timer
    return
@@ -363,8 +365,7 @@ RTU.isrTx:
    CopyWord FSR0L, Modbus.MsgTail
 
    ; Switch states so we can start sending message bytes.
-   movlw    Modbus.kState_Emission
-   movwf    Modbus.State
+   incf     Modbus.State            ; state = Modbus.kState_Emission
 
 txStash:
    ; Get the next byte from the message buffer.  If none is available, the carry
@@ -395,15 +396,15 @@ txEnd:
 
 
 ;; ----------------------------------------------
-;;  void calcCRC( const byte buffer[] )
+;;  void calcCRC( FSR0 txBuffer )
 ;;
 ;;  Computes the CRC-16 checksum of the buffer, storing the little-endian
-;;  result in MODBUS.Checksum.  The MODBUS generating polynomial is 0xa001,
+;;  result in Modbus.Checksum.  The Modbus generating polynomial is 0xa001,
 ;;  equivalent to:
 ;;
 ;;    x^16 + x^15 + x^13 + x^0
 ;;
-;;  This method expects MODBUS.MsgTail to point one past the last message
+;;  This method expects Modbus.MsgTail to point one past the last message
 ;;  buffer byte to be included in the checksum.
 ;;
 calcCRC:
