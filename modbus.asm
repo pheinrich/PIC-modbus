@@ -36,11 +36,15 @@
    global   Modbus.putFrameByte
    global   Modbus.replyMsg
    global   Modbus.resetFrame
+   global   Modbus.unsupported
    global   Modbus.validateMsg
 
    ; Dependencies
    extern   ASCII.init
    extern   ASCII.isrTimeout
+   extern   Diag.diagnostics
+   extern   Diag.getEventCount
+   extern   Diag.getEventLog
    extern   Diag.init
    extern   RTU.init
    extern   RTU.isrTimeout
@@ -72,11 +76,10 @@ Modbus.MsgTail          res   2     ; points to next location to be read or writ
 ;; ---------------------------------------------------------------------------
 
 BuiltinVTbl:
-   data      8, diagnostics
-   data     11, getEventCount
-   data     12, getEventLog
-   data     17, getSlaveId
-   data     -1, unsupported
+   data     Modbus.kDiagnostics, Diag.diagnostics
+   data     Modbus.kGetEventCount, Diag.getEventCount
+   data     Modbus.kGetEventLog, Diag.getEventLog
+   data     -1, Modbus.unsupported
 
 
 
@@ -123,11 +126,10 @@ setTail:
 
 
 ;; ----------------------------------------------
-;;  void Modbus.builtin()
+;;  void Modbus.builtin( WREG funcKey )
 ;;
 Modbus.builtin:
    SetTableBase BuiltinVTbl
-   movf     Util.Save, W
    goto     VTable.dispatch
 
 
@@ -307,6 +309,17 @@ Modbus.resetFrame:
 
 
 ;; ----------------------------------------------
+;;  void Modbus.unsupported()
+;;
+Modbus.unsupported:
+   ; The requested function or subfunction code wasn't recognized, so we have no
+   ; choice but to return a reply containing exception code 1.
+   movlw    Modbus.kErrorBadFunction
+   bra      Modbus.buildErrorReply
+
+
+
+;; ----------------------------------------------
 ;;  boolean Modbus.validateMsg()
 ;;
 Modbus.validateMsg:
@@ -343,49 +356,6 @@ valChecksum:
    ; Success, so clear our earlier assumption about a bad checksum.
    bcf      Modbus.Event, Modbus.kRxEvt_CommErr
    retlw    0
-
-
-
-;; ----------------------------------------------
-;;
-;;
-diagnostics:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-getEventCount:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-getEventLog:
-   return
-
-
-
-;; ----------------------------------------------
-;;
-;;
-getSlaveId:
-   return
-
-
-
-;; ----------------------------------------------
-;;  void unsupported()
-;;
-unsupported:
-   ; The function code requested wasn't recognized, so we have no choice but to
-   ; return a reply containing exception code 1 (unsupported function).
-   movlw    Modbus.kErrorBadFunction
-   bra      Modbus.buildErrorReply
 
 
 

@@ -21,6 +21,9 @@
    global   Diag.Options
 
    ; Public Methods
+   global   Diag.diagnostics
+   global   Diag.getEventCount
+   global   Diag.getEventLog
    global   Diag.init
    global   Diag.logListenOnly
    global   Diag.logRestart
@@ -29,6 +32,8 @@
 
    ; Dependencies
    extern   Modbus.Event
+   extern   Modbus.unsupported
+   extern   VTable.dispatch
 
 
 
@@ -62,6 +67,52 @@ Diag.Register           res   2
 ;; ---------------------------------------------------------------------------
 .diag                   code
 ;; ---------------------------------------------------------------------------
+
+DiagnosticsVTbl:
+   data     Modbus.kDiagReturnQuery, returnQuery
+   data     Modbus.kDiagRestartComm, restartComm
+   data     Modbus.kDiagGetRegister, getRegister
+   data     Modbus.kDiagSetDelim, setDelim
+   data     Modbus.kDiagSetListenOnly, setListenOnly
+   data     Modbus.kDiagClear, clear
+   data     Modbus.kDiagGetMsgCount, getMsgCount
+   data     Modbus.kDiagGetErrorCount, getErrorCount
+   data     Modbus.kDiagGetExceptCount, getExceptCount
+   data     Modbus.kDiagGetSlaveMsgCount, getSlaveMsgCount
+   data     Modbus.kDiagGetNoRespCount, getNoRespCount
+   data     Modbus.kDiagGetNAKCount, getNAKCount
+   data     Modbus.kDiagGetBusyCount, getBusyCount
+   data     Modbus.kDiagGetOverrunCount, getOverrunCount
+   data     Modbus.kDiagClearOverrun, clearOverrun
+   data     -1, Modbus.unsupported
+
+
+
+;; ----------------------------------------------
+;;  void Diag.diagnostics()
+;;
+Diag.diagnostics:
+   movf     Modbus.kRxSubFunction, W
+   SetTableBase DiagnosticsVTbl
+   goto     VTable.dispatch
+
+
+
+;; ----------------------------------------------
+;;  void Diag.getEventCount()
+;;
+Diag.getEventCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;  void Diag.getEventLog()
+;;
+Diag.getEventLog:
+   return
+
+
 
 ;; ----------------------------------------------
 ;;  void Diag.init()
@@ -235,6 +286,126 @@ Diag.storeLogByte:
    cpfslt   Diag.LogHead            ; is the new head >= max buffer length?
      clrf   Diag.LogHead            ; yes, reset to 0
 
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+clear:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+clearOverrun:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getBusyCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getErrorCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getExceptCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getMsgCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getNAKCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getNoRespCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getOverrunCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getRegister:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+getSlaveMsgCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+restartComm:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+returnQuery:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+setDelim:
+   return
+
+
+
+;; ----------------------------------------------
+;;
+;;
+setListenOnly:
    return
 
 
