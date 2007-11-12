@@ -109,8 +109,8 @@ Modbus.kDiag_Busy             equ   5
 ; However, since we convert ASCII messages into RTU mode for processing any-
 ; way, we don't actually need separate buffers.  We do a reverse conversion
 ; just before transmission, back into the receive buffer.
-Modbus.kLogBuffer             equ   0x00bf
-Modbus.kLogBufLen             equ   0x0040
+Modbus.kLogBuffer             equ   0x00be
+Modbus.kLogBufLen             equ   0x0041
 
 Modbus.kRxBuffer              equ   Modbus.kLogBuffer + Modbus.kLogBufLen
 Modbus.kRxBufLen              equ   0x100
@@ -130,3 +130,5 @@ Modbus.kTxSlave               equ   Modbus.kTxBuffer
 Modbus.kTxFunction            equ   Modbus.kTxBuffer + 1
 Modbus.kTxErrorCode           equ   Modbus.kTxBuffer + 1
 Modbus.kTxSubFunction         equ   Modbus.kTxBuffer + 2
+Modbus.kTxStatus              equ   Modbus.kTxBuffer + 2
+Modbus.kTxEventCount          equ   Modbus.kTxBuffer + 4

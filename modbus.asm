@@ -84,6 +84,17 @@ BuiltinVTbl:
 
 
 ;; ----------------------------------------------
+;;  void Modbus.buildReply( WREG size )
+;;
+Modbus.buildReply:
+   ; Copy the device id from the original message, as well as the function code,
+   movff    Modbus.kRxSlave, Modbus.kTxSlave
+   movff    Modbus.kRxFunction, Modbus.kTxFunction
+   return
+
+
+
+;; ----------------------------------------------
 ;;  void Modbus.buildErrorReply()
 ;;
 Modbus.buildErrorReply:
@@ -126,7 +137,7 @@ setTail:
 
 
 ;; ----------------------------------------------
-;;  void Modbus.builtin( WREG funcKey )
+;;  void Modbus.builtin( frame[0..1] funcKey )
 ;;
 Modbus.builtin:
    SetTableBase BuiltinVTbl
@@ -138,8 +149,8 @@ Modbus.builtin:
 ;;  void Modbus.dispatchMsg( TBLPTR vtable )
 ;;
 Modbus.dispatchMsg:
-   movlb    1
-   movf     Modbus.kRxFunction, W
+   movff    Modbus.kRxFunction, Util.Frame
+   clrf     Util.Frame + 1
    goto     VTable.dispatch
 
 

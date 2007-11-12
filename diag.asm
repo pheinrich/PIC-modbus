@@ -33,6 +33,7 @@
    ; Dependencies
    extern   Modbus.Event
    extern   Modbus.unsupported
+   extern   Util.Frame
    extern   VTable.dispatch
 
 
@@ -49,8 +50,8 @@ Diag.Options            res   1
                         ; --1-----  busy
                         ; ---XXXXX  reserved
 
-Diag.LogHead            res   1     ; pointer to the oldest event
-Diag.LogTail            res   1     ; pointer to most recent event
+Diag.LogHead            res   1     ; pointer to next write position
+Diag.LogTail            res   1     ; pointer to next read position
 
 Diag.NumCommErrs        res   2
 Diag.NumExceptErrs      res   2
@@ -92,7 +93,8 @@ DiagnosticsVTbl:
 ;;  void Diag.diagnostics()
 ;;
 Diag.diagnostics:
-   movf     Modbus.kRxSubFunction, W
+   movff    Modbus.kRxSubFunction, Util.Frame
+   movff    Modbus.kRxSubFunction + 1, Util.Frame + 1
    SetTableBase DiagnosticsVTbl
    goto     VTable.dispatch
 
@@ -254,11 +256,11 @@ txWrite:
 
 
 ;; ----------------------------------------------
-;;  void Diag.storeLogByte( byte evt )
+;;  void Diag.storeLogByte()
 ;;
-;;  Stores the byte specified in the circular log buffer at the current tail
-;;  pointer.  The pointer is advanced, but never more than the maximum buffer
-;;  length, 64 (the head pointer may move to compensate).
+;;  Stores the current Modbus.Event byte in the circular log buffer.  The tail
+;;  pointer is advanced, but never more than the maximum buffer length, 64
+;;  (the head pointer may move to compensate).
 ;;
 Diag.storeLogByte:
    ; Keep track of overall event count, even across comm restarts.
@@ -266,25 +268,25 @@ Diag.storeLogByte:
 
    ; Store the event byte at the tail of the buffer.
    lfsr     FSR0, Modbus.kLogBuffer
-   movf     Diag.LogTail, W
+   movf     Diag.LogHead, W
    movff    Modbus.Event, PLUSW0
 
-   ; Increment the tail pointer, making sure it never exceeds the maximum buffer
-   ; length of 64.
-   incf     Diag.LogTail, F         ; add 1 to the tail pointer
-   movlw    Modbus.kLogBufLen
-   cpfslt   Diag.LogTail            ; is the new tail >= max buffer length?
-     clrf   Diag.LogTail            ; yes, reset to 0
-
-   ; The head pointer may need to be adjusted as well.
-   movf     Diag.LogHead, W
-   cpfseq   Diag.LogTail            ; are the head and tail pointers equal?
-     return                         ; no, we're done
-
-   incf     Diag.LogHead, F         ; yes, add 1 to the head pointer, too
+   ; Increment the head pointer, making sure it never exceeds the maximum buffer
+   ; length of 65 (one more than we need, to avoid circular buffer difficulties).
+   incf     Diag.LogHead, F         ; add 1 to the head pointer
    movlw    Modbus.kLogBufLen
    cpfslt   Diag.LogHead            ; is the new head >= max buffer length?
      clrf   Diag.LogHead            ; yes, reset to 0
+
+   ; The tail pointer may need to be adjusted as well.
+   movf     Diag.LogTail, W
+   cpfseq   Diag.LogHead            ; are the head and tail pointers equal?
+     return                         ; no, we're done
+
+   incf     Diag.LogTail, F         ; yes, add 1 to the tail pointer, too
+   movlw    Modbus.kLogBufLen
+   cpfslt   Diag.LogTail            ; is the new tail >= max buffer length?
+     clrf   Diag.LogTail            ; yes, reset to 0
 
    return
 
@@ -318,6 +320,21 @@ getBusyCount:
 ;;
 ;;
 getErrorCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;  WREG getEventCount()
+;;
+;;  Returns the number of events currently stored in the circular event log
+;;  buffer, computed as the difference between the head and tail pointers.
+;;
+getEventCount:
+   movf     Diag.LogHead, W
+   subwf    Diag.LogTail, W
+   btfsc    STATUS, N
+     addlw  Modbus.kLogBufLen
    return
 
 
