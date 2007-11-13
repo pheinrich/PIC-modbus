@@ -26,15 +26,15 @@
    ; Dependencies
    extern   Diag.logRxEvt
    extern   Diag.logTxEvt
-   extern   Modbus.Checksum
+   extern   Frame.Checksum
+   extern   Frame.isValid
+   extern   Frame.Head
+   extern   Frame.reset
+   extern   Frame.rxByte
+   extern   Frame.Tail
+   extern   Frame.txByte
    extern   Modbus.Event
-   extern   Modbus.getFrameByte
-   extern   Modbus.MsgHead
-   extern   Modbus.MsgTail
-   extern   Modbus.putFrameByte
-   extern   Modbus.resetFrame
    extern   Modbus.State
-   extern   Modbus.validateMsg
    extern   USART.HookRx
    extern   USART.HookTx
    extern   USART.Read
@@ -225,7 +225,7 @@ rxIdle:
    movwf    Modbus.State
 
    lfsr     FSR0, Modbus.kRxBuffer
-   call     Modbus.resetFrame
+   call     Frame.reset
    bra      rxStash                 ; start buffering frame characters
 
 rxReception:
@@ -238,7 +238,7 @@ rxStash:
    ; Reception State:  characters received now are buffered until a character gap
    ; is detected.
    movf     USART.Read, W
-   call     Modbus.putFrameByte
+   call     Frame.rxByte
    TIMER1   CharTimeout             ; reset the character timeout timer
    return
 
@@ -312,15 +312,15 @@ timeoutWaiting:
    bnz      timeoutDone             ; yes, discard the frame
 
    movlw    0x2                     ; rewind 2 characters
-   subwf    Modbus.MsgTail, F
+   subwf    Frame.Head, F
    movlw    0x0
-   subwfb   Modbus.MsgTail + 1, F
+   subwfb   Frame.Head + 1, F
 
    ; Compute the checksum of the message so it can be validated, along with the
    ; target address.
    lfsr     FSR0, Modbus.kRxBuffer  ; FSR0 = message head
    rcall    calcCRC
-   call     Modbus.validateMsg
+   call     Frame.isValid
    tstfsz   WREG                    ; was the validation successful?
      bra    timeoutDone             ; no, discard the frame
 
@@ -355,14 +355,13 @@ RTU.isrTx:
 
    ; Emit Start State:  a message reply we want to send is waiting in kTxBuffer,
    ; but we must calculate its checksum before we can transmit it.
-   lfsr     FSR0, Modbus.kTxBuffer
-   CopyWord FSR0L, Modbus.MsgHead
+   CopyWord Frame.Tail, FSR0L
    rcall    calcCRC
 
    ; Store the checksum at the end of the message buffer and update the tail.
-   movff    Modbus.Checksum, POSTINC0
-   movff    Modbus.Checksum + 1, POSTINC0
-   CopyWord FSR0L, Modbus.MsgTail
+   movff    Frame.Checksum, POSTINC0
+   movff    Frame.Checksum + 1, POSTINC0
+   CopyWord FSR0L, Frame.Head
 
    ; Switch states so we can start sending message bytes.
    incf     Modbus.State            ; state = Modbus.kState_Emission
@@ -370,7 +369,7 @@ RTU.isrTx:
 txStash:
    ; Get the next byte from the message buffer.  If none is available, the carry
    ; flag will be set on return.
-   call     Modbus.getFrameByte
+   call     Frame.txByte
    bc       txEnd
    goto     USART.send
 
@@ -399,45 +398,45 @@ txEnd:
 ;;  void calcCRC( FSR0 txBuffer )
 ;;
 ;;  Computes the CRC-16 checksum of the buffer, storing the little-endian
-;;  result in Modbus.Checksum.  The Modbus generating polynomial is 0xa001,
+;;  result in Frame.Checksum.  The Modbus generating polynomial is 0xa001,
 ;;  equivalent to:
 ;;
 ;;    x^16 + x^15 + x^13 + x^0
 ;;
-;;  This method expects Modbus.MsgTail to point one past the last message
-;;  buffer byte to be included in the checksum.
+;;  This method expects Frame.Head to point one past the last message buffer
+;;  byte to be included in the checksum.
 ;;
 calcCRC:
    ; Compute the message length, which is limited to 256 bytes in RTU mode.  This
    ; means we can ignore the high byte of the message tail pointer, even if it
    ; crosses a page boundary.
-   movff    Modbus.MsgTail, Util.Frame
+   movff    Frame.Head, Util.Frame
    movf     FSR0L, W
    subwf    Util.Frame, F           ; frame[0] = 8-bit message length
 
    ; Initialize the checksum and a pointer to the message buffer.
-   setf     Modbus.Checksum
-   setf     Modbus.Checksum + 1     ; crc = 0xffff, initially
+   setf     Frame.Checksum
+   setf     Frame.Checksum + 1      ; crc = 0xffff, initially
 
 crcLoop:
    ; Update the checksum with the current byte.
    movf     POSTINC0, W             ; read the byte at head
-   xorwf    Modbus.Checksum, F      ; add it to the checksum's low byte
+   xorwf    Frame.Checksum, F       ; add it to the checksum's low byte
    movlw    0x08                    ; prepare to loop through all bits
    movwf    Util.Frame + 1
 
 crcXOR:
    ; Shift the checksum one bit.
    bcf      STATUS, C               ; shift 0 into the MSB
-   rrcf     Modbus.Checksum + 1, F
-   rrcf     Modbus.Checksum, F      ; was the LSB set?
+   rrcf     Frame.Checksum + 1, F
+   rrcf     Frame.Checksum, F       ; was the LSB set?
    bnc      crcNext                 ; no, process the next bit
 
    ; The LSB was set, so apply the polynomial.
    movlw    0xa0
-   xorwf    Modbus.Checksum + 1, F
+   xorwf    Frame.Checksum + 1, F
    movlw    0x01
-   xorwf    Modbus.Checksum, F
+   xorwf    Frame.Checksum, F
 
 crcNext:
    ; Repeat for every bit in the current byte.
