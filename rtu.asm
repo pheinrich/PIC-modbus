@@ -1,6 +1,6 @@
 ;; ---------------------------------------------------------------------------
 ;;
-;;  MODBUS
+;;  Modbus
 ;;
 ;;  Copyright © 2006  Peter Heinrich
 ;;  All Rights Reserved
@@ -318,7 +318,7 @@ timeoutWaiting:
 
    ; Compute the checksum of the message so it can be validated, along with the
    ; target address.
-   lfsr     FSR0, Modbus.kRxBuffer  ; FSR0 = message head
+   lfsr     FSR0, Modbus.kRxBuffer  ; FSR0 = message tail
    rcall    calcCRC
    call     Frame.isValid
    tstfsz   WREG                    ; was the validation successful?
@@ -420,7 +420,7 @@ calcCRC:
 
 crcLoop:
    ; Update the checksum with the current byte.
-   movf     POSTINC0, W             ; read the byte at head
+   movf     POSTINC0, W             ; read the byte at tail
    xorwf    Frame.Checksum, F       ; add it to the checksum's low byte
    movlw    0x08                    ; prepare to loop through all bits
    movwf    Util.Frame + 1
