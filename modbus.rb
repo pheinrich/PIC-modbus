@@ -96,9 +96,5 @@ end
 
 modbus = Modbus.new( "COM4" )
 modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
-slave, pdu = modbus.rx
-puts "Slave = 0x%02x, PDU = \"#{pdu}\"" % slave
 modbus.ascii!
 modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
-slave, pdu = modbus.rx
-puts "Slave = 0x%02x, PDU = \"#{pdu}\"" % slave
