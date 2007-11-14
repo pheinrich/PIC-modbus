@@ -1,11 +1,44 @@
 #!/usr/bin/ruby
+## ---------------------------------------------------------------------------
+##
+##  Modbus
+##
+##  Copyright © 2006,7  Peter Heinrich
+##  All Rights Reserved
+##
+##  $URL$
+##  $Revision$
+##
+##  This file defines a tiny Modbus master (client) suitable for testing and
+##  debugging of the PIC Modbus slave (server) library.  This master is de-
+##  signed for interactive use in irb, exposing specific Modbus send/receive
+##  actions as public methods.
+##
+## ---------------------------------------------------------------------------
+##  $Author$
+##  $Date$
+## ---------------------------------------------------------------------------
+
+
 
 require "serialport"
+
+
 
 DEF_BAUD = 19200
 DEF_DATABITS = 8
 DEF_STOPBITS = 1
 DEF_PARITY = SerialPort::EVEN
+
+
+
+class Integer
+  def le_word
+    return (0xff & self).chr + (self >> 8).chr
+  end
+end
+
+
 
 class Modbus
   def initialize( port, baud = DEF_BAUD, databits = DEF_DATABITS, stopbits = DEF_STOPBITS, parity = DEF_PARITY )
@@ -92,9 +125,71 @@ class Modbus
 
     return slave, pdu
   end
-end
 
-modbus = Modbus.new( "COM4" )
-modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
-modbus.ascii!
-modbus.tx( 1, "ABCDEF0123456789\001\002\111\222" )
+
+
+  def readCoils( slave, address, count )
+    tx( slave, 1.chr + address.le_word + count.le_word )
+  end
+
+  def readDiscretes( slave, address, count )
+    tx( slave, 2.chr + address.le_word + count.le_word )
+  end
+
+  def readRegisters( slave, address, count )
+    tx( slave, 3.chr + address.le_word + count.le_word )
+  end
+
+  def readInputs( slave, address, count )
+    tx( slave, 4.chr + address.le_word + count.le_word )
+  end
+
+  def writeCoil( slave, address, value )
+    tx( slave, 5.chr + address.le_word + value.le_word )
+  end
+
+  def writeRegister( slave, address, value )
+    tx( slave, 6.chr + address.le_word + value.le_word )
+  end
+
+  def getExceptions( slave )
+    tx( slave, 7.chr )
+  end
+
+  def getEventCount( slave )
+    tx( slave, 11.chr )
+  end
+
+  def getEventLog( slave )
+    tx( slave, 12.chr )
+  end
+
+  def writeCoils( slave, address, values )
+  end
+
+  def writeRegisters( slave, address, values )
+    tx( slave, 16.chr + address.le_word + values.length.le_word +
+         (values << 1).chr + values.pack( "v#{values.length}" )
+  end
+
+  def getSlaveId( slave )
+    tx( slave, 17.chr )
+  end
+
+  def readFileRecord( slave, subreqs )
+  end
+
+  def writeFileRecord( slave, subreqs )
+  end
+
+  def writeRegMask( slave, address, andMask, orMask )
+    tx( slave, 22.chr + address.le_word + andMask.le_word + orMask.le_word )
+  end
+
+  def readWriteRegs( slave, readAddr, count, writeAddr, values )
+  end
+
+  def readFIFOQueue( slave, queue )
+    tx( slave, 24.chr + queue.le_word )
+  end
+end
