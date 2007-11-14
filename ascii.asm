@@ -34,6 +34,7 @@
    extern   Frame.isValid
    extern   Frame.reset
    extern   Frame.rxByte
+   extern   Frame.Tail
    extern   Frame.txByte
    extern   Modbus.Event
    extern   Modbus.State
@@ -356,7 +357,7 @@ txEmitDone:
 
 
 ;; ----------------------------------------------
-;;  void ascii2rtu()
+;;  void ascii2rtu( FSR1 asciiHead )
 ;;
 ;;  Converts the message in the Modbus.kASCIIBuffer to binary (RTU) format in
 ;;  the Modbus.kRxBuffer.  Each original character contributes one nybble, so
@@ -370,11 +371,11 @@ txEmitDone:
 ;;
 ascii2rtu:
    ; Initialize some pointers.
-   lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = message head (ASCII)
-   lfsr     FSR2, Modbus.kRxBuffer  ; FSR2 = message tail (RTU)
+   lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = asciiTail
+   lfsr     FSR2, Modbus.kRxBuffer  ; FSR2 = rtuHead
 
 a2rLoop:
-   ; Compare the head and tail pointers.
+   ; Compare the ASCII head and tail pointers.
    movf     FSR0L, W
    cpfseq   FSR1L                   ; are low bytes equal?
      bra    a2rUpdate               ; no, keep going
@@ -383,11 +384,12 @@ a2rLoop:
    cpfseq   FSR1H                   ; are high bytes equal?
      bra    a2rUpdate               ; no, keep going
 
-   ; The head and tail pointers are equal, so we're done.  The last thing we do is
-   ; clear the LRC's "virtual" high byte.  The LRC is only 8-bits, but we treat it
-   ; like a 16-bit little-endian word to mimic the CRC16 used in RTU mode.
+   ; The head and tail pointers are equal, so we're done.  Clear the LRC's high
+   ; byte, since it's an 8-bit value we're treating like a 16-bit little-endian
+   ; word (to mimic the CRC16 used in RTU mode).
    clrf     POSTDEC2
    CopyWord FSR2L, Frame.Head
+   SetWord  Modbus.kRxBuffer, Frame.Tail
    return
 
 a2rUpdate:
@@ -471,6 +473,7 @@ r2aLoop:
 
    ; The head and tail pointers are equal, so we're done.
    CopyWord FSR2L, Frame.Head
+   SetWord Modbus.kRxBuffer, Frame.Tail
    return
 
 r2aUpdate:

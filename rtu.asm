@@ -31,7 +31,6 @@
    extern   Frame.Head
    extern   Frame.reset
    extern   Frame.rxByte
-   extern   Frame.Tail
    extern   Frame.txByte
    extern   Modbus.Event
    extern   Modbus.State
@@ -355,7 +354,7 @@ RTU.isrTx:
 
    ; Emit Start State:  a message reply we want to send is waiting in kTxBuffer,
    ; but we must calculate its checksum before we can transmit it.
-   CopyWord Frame.Tail, FSR0L
+   lfsr     FSR0, Modbus.kTxBuffer
    rcall    calcCRC
 
    ; Store the checksum at the end of the message buffer and update the tail.
