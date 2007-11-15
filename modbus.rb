@@ -63,6 +63,14 @@ class Modbus
     @rtu
   end
 
+  def is_error?( pdu )
+    if 0 != (0x80 & pdu[ 0 ])
+       puts "Error: #{pdu[1]}"
+       return true
+    end
+    return false
+  end
+
   def crc( pdu )
     sum = 0xffff
     pdu.each_byte do |b|
@@ -130,6 +138,10 @@ class Modbus
 
   def getEventCount( slave )
     tx( slave, 11.chr )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def getEventLog( slave )
