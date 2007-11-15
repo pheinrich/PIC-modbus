@@ -115,7 +115,7 @@ class Modbus
 
   def rx
     # DEBUG
-    return 1, "\014\010\000\000\001\010\001\041\040\000" if !@sp
+    return 1, "\001\003\315\153\005" if !@sp
 
     adu = @sp.gets if @sp
     puts( "Rx: \"#{adu}\"" )
@@ -203,22 +203,48 @@ class Modbus
 
   def getExceptions( slave )
     tx( slave, 7.chr )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      puts "Slave #{slave} [getExceptions]:"
+      8.times { |i| puts "  exception ##{i}: #{0 == (1 << i) & pdu[ 1 ] ? "NO" : "YES"}" }
+    end
   end
 
   def getSlaveId( slave )
     tx( slave, 17.chr )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      pdu[ 2..-1 ]
+    end
   end
 
   def readCoils( slave, address, count )
     tx( slave, 1.chr + address.to_word + count.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      coils = []
+      pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| coils << b - ?0 }
+      coils[ 0, count ]
+    end
   end
 
   def readDiscretes( slave, address, count )
     tx( slave, 2.chr + address.to_word + count.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def readFIFOQueue( slave, queue )
     tx( slave, 24.chr + queue.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def readFileRecord( slave, subreqs )
@@ -226,10 +252,18 @@ class Modbus
 
   def readInputs( slave, address, count )
     tx( slave, 4.chr + address.to_word + count.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def readRegisters( slave, address, count )
     tx( slave, 3.chr + address.to_word + count.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def readWriteRegs( slave, readAddr, count, writeAddr, values )
@@ -237,13 +271,22 @@ class Modbus
 
   def writeCoil( slave, address, value )
     tx( slave, 5.chr + address.to_word + value.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def writeCoils( slave, address, values )
     count = values.length
     pdu = ""
     0.step( count, 8 ) { |i| pdu << values[ i...i+8 ].join.reverse.to_i( 2 ).chr }
+
     tx( slave, 15.chr + (address - 1).to_word + count.to_word + pdu.length.chr + pdu )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def writeFileRecord( slave, subreqs )
@@ -251,14 +294,27 @@ class Modbus
 
   def writeRegister( slave, address, value )
     tx( slave, 6.chr + address.to_word + value.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def writeRegisters( slave, address, values )
-    tx( slave, 16.chr + address.to_word + values.length.to_word +
-         (values.length << 1).chr + values.pack( "v#{values.length}" ) )
+    length = values.length
+
+    tx( slave, 16.chr + address.to_word + length.to_word + (length << 1).chr + values.pack( "v#{length}" ) )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 
   def writeRegMask( slave, address, andMask, orMask )
     tx( slave, 22.chr + address.to_word + andMask.to_word + orMask.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+    end
   end
 end
