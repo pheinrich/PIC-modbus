@@ -41,6 +41,15 @@ end
 
 
 class Modbus
+  @@errors = { 1  => "Illegal Function",
+               2  => "Illegal Data Address",
+               3  => "Illegal Data Value",
+               4  => "Slave Device Failure",
+               5  => "Acknowledge",
+               6  => "Slave Device Busy",
+               8  => "Memory Parity Error",
+               10 => "Gateway Path Unavailable" }
+
   def initialize( port, baud = DEF_BAUD, databits = DEF_DATABITS, stopbits = DEF_STOPBITS, parity = DEF_PARITY )
     begin
       @sp = SerialPort.open( port, baud, databits, stopbits, parity );
@@ -65,7 +74,7 @@ class Modbus
 
   def is_error?( pdu )
     if 0 != (0x80 & pdu[ 0 ])
-       puts "Error: #{pdu[1]}"
+       puts "Error: #{@@errors[ pdu[ 1 ] ]}"
        return true
     end
     return false
@@ -105,6 +114,9 @@ class Modbus
   end
 
   def rx
+    # DEBUG
+    return 1, "\014\010\000\000\001\010\001\041\040\000" if !@sp
+
     adu = @sp.gets if @sp
     puts( "Rx: \"#{adu}\"" )
 
@@ -132,6 +144,32 @@ class Modbus
     return slave, pdu
   end
 
+  def showEvents( log )
+    log.each_with_index do |e, i|
+      if 0 == e
+        puts "%2d Communication Restart" % i
+      elsif 4 == e
+        puts "%2d Entering Listen Only Mode" % i
+      elsif 0 != (0x80 & e)
+        print "%2d Message Received: " % i
+        print "broadcast/ " if 0 != (0x40 & e)
+        print "listen-only/ " if 0 != (0x20 & e)
+        print "overrun/ " if 0 != (0x10 & e)
+        print "error/" if 0 != (0x02 & e)
+        puts
+      else
+        print "%2d Message Sent: " % i
+        print "listen-only/ " if 0 != (0x20 & e)
+        print "timeout/ " if 0 != (0x10 & e)
+        print "NAK err/ " if 0 != (0x08 & e)
+        print "Busy err/ " if 0 != (0x04 & e)
+        print "Abort err/ " if 0 != (0x02 & e)
+        print "Read err/" if 0 != (0x01 & e)
+        puts
+      end
+    end
+  end
+
 
 
   def getEventCount( slave )
@@ -139,11 +177,28 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      status, events = pdu[1, 4].unpack( "n2" )
+
+      puts "Slave #{slave} [getEventCount]:"
+      puts "  status: #{0 == status ? "READY" : "BUSY"}"
+      puts "  events:  #{events}"
     end
   end
 
   def getEventLog( slave )
     tx( slave, 12.chr )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      bytes, status, events, messages = pdu[1, 7].unpack( "cn3" )
+      log = pdu[8..-1].unpack( "c#{bytes - 6}" )
+
+      puts "Slave #{slave} [getEventLog]:"
+      puts "  status:   #{0 == status ? "READY" : "BUSY"}"
+      puts "  events:   #{events}"
+      puts "  messages: #{messages}"
+      log
+    end
   end
 
   def getExceptions( slave )
