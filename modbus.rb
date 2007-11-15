@@ -115,7 +115,7 @@ class Modbus
 
   def rx
     # DEBUG
-    return 1, "\001\003\315\153\005" if !@sp
+    return 1, "\027\014\000\376\012\315\000\001\000\003\000\015\377" if !@sp
 
     adu = @sp.gets if @sp
     puts( "Rx: \"#{adu}\"" )
@@ -216,26 +216,34 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      puts "Slave #{slave} [getSlaveId]"
       pdu[ 2..-1 ]
     end
   end
 
   def readCoils( slave, address, count )
-    tx( slave, 1.chr + address.to_word + count.to_word )
+    tx( slave, 1.chr + (address - 1).to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
       coils = []
       pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| coils << b - ?0 }
+
+      puts "Slave #{slave} [readCoils]"
       coils[ 0, count ]
     end
   end
 
   def readDiscretes( slave, address, count )
-    tx( slave, 2.chr + address.to_word + count.to_word )
+    tx( slave, 2.chr + (address - 1).to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      discretes = []
+      pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| discretes << b - ?0 }
+
+      puts "Slave #{slave} [readDiscretes]"
+      discretes[ 0, count ]
     end
   end
 
@@ -244,6 +252,11 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      count = pdu[ 3, 2 ].unpack( "n" )
+      queue = pdu[ 5..-1 ].unpack( "n#{count}" )
+
+      puts "Slave #{slave} [readFIFOQueue]"
+      queue
     end
   end
 
@@ -251,18 +264,22 @@ class Modbus
   end
 
   def readInputs( slave, address, count )
-    tx( slave, 4.chr + address.to_word + count.to_word )
+    tx( slave, 4.chr + (address - 1).to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      puts "Slave #{slave} [readInputs]"
+      inputs = pdu[ 2..-1 ].unpack( "n#{pdu[ 1 ] >> 1}" )
     end
   end
 
   def readRegisters( slave, address, count )
-    tx( slave, 3.chr + address.to_word + count.to_word )
+    tx( slave, 3.chr + (address - 1).to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      puts "Slave #{slave} [readRegisters]"
+      registers = pdu[ 2..-1 ].unpack( "n#{pdu[ 1 ] >> 1}" )
     end
   end
 
@@ -293,7 +310,7 @@ class Modbus
   end
 
   def writeRegister( slave, address, value )
-    tx( slave, 6.chr + address.to_word + value.to_word )
+    tx( slave, 6.chr + (address - 1).to_word + value.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -303,7 +320,7 @@ class Modbus
   def writeRegisters( slave, address, values )
     length = values.length
 
-    tx( slave, 16.chr + address.to_word + length.to_word + (length << 1).chr + values.pack( "v#{length}" ) )
+    tx( slave, 16.chr + (address - 1).to_word + length.to_word + (length << 1).chr + values.pack( "v#{length}" ) )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -311,7 +328,7 @@ class Modbus
   end
 
   def writeRegMask( slave, address, andMask, orMask )
-    tx( slave, 22.chr + address.to_word + andMask.to_word + orMask.to_word )
+    tx( slave, 22.chr + (address - 1).to_word + andMask.to_word + orMask.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
