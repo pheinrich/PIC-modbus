@@ -128,34 +128,6 @@ class Modbus
 
 
 
-  def readCoils( slave, address, count )
-    tx( slave, 1.chr + address.le_word + count.le_word )
-  end
-
-  def readDiscretes( slave, address, count )
-    tx( slave, 2.chr + address.le_word + count.le_word )
-  end
-
-  def readRegisters( slave, address, count )
-    tx( slave, 3.chr + address.le_word + count.le_word )
-  end
-
-  def readInputs( slave, address, count )
-    tx( slave, 4.chr + address.le_word + count.le_word )
-  end
-
-  def writeCoil( slave, address, value )
-    tx( slave, 5.chr + address.le_word + value.le_word )
-  end
-
-  def writeRegister( slave, address, value )
-    tx( slave, 6.chr + address.le_word + value.le_word )
-  end
-
-  def getExceptions( slave )
-    tx( slave, 7.chr )
-  end
-
   def getEventCount( slave )
     tx( slave, 11.chr )
   end
@@ -164,32 +136,66 @@ class Modbus
     tx( slave, 12.chr )
   end
 
-  def writeCoils( slave, address, values )
-  end
-
-  def writeRegisters( slave, address, values )
-    tx( slave, 16.chr + address.le_word + values.length.le_word +
-         (values << 1).chr + values.pack( "v#{values.length}" )
+  def getExceptions( slave )
+    tx( slave, 7.chr )
   end
 
   def getSlaveId( slave )
     tx( slave, 17.chr )
   end
 
+  def readCoils( slave, address, count )
+    tx( slave, 1.chr + address.le_word + count.le_word )
+  end
+
+  def readDiscretes( slave, address, count )
+    tx( slave, 2.chr + address.le_word + count.le_word )
+  end
+
+  def readFIFOQueue( slave, queue )
+    tx( slave, 24.chr + queue.le_word )
+  end
+
   def readFileRecord( slave, subreqs )
   end
 
-  def writeFileRecord( slave, subreqs )
+  def readInputs( slave, address, count )
+    tx( slave, 4.chr + address.le_word + count.le_word )
   end
 
-  def writeRegMask( slave, address, andMask, orMask )
-    tx( slave, 22.chr + address.le_word + andMask.le_word + orMask.le_word )
+  def readRegisters( slave, address, count )
+    tx( slave, 3.chr + address.le_word + count.le_word )
   end
 
   def readWriteRegs( slave, readAddr, count, writeAddr, values )
   end
 
-  def readFIFOQueue( slave, queue )
-    tx( slave, 24.chr + queue.le_word )
+  def writeCoil( slave, address, value )
+    tx( slave, 5.chr + address.le_word + value.le_word )
+  end
+
+  def writeCoils( slave, address, values )
+    count = values.length
+
+    values << 0 while 0 != (7 & values.length)
+    values = [values.to_s].pack( "B#{values.length}" )
+
+    tx( slave, 15.chr + address.le_word + count.le_word + values.length.chr + values )
+  end
+
+  def writeFileRecord( slave, subreqs )
+  end
+
+  def writeRegister( slave, address, value )
+    tx( slave, 6.chr + address.le_word + value.le_word )
+  end
+
+  def writeRegisters( slave, address, values )
+    tx( slave, 16.chr + address.le_word + values.length.le_word +
+         (values.length << 1).chr + values.pack( "v#{values.length}" ) )
+  end
+
+  def writeRegMask( slave, address, andMask, orMask )
+    tx( slave, 22.chr + address.le_word + andMask.le_word + orMask.le_word )
   end
 end
