@@ -33,8 +33,8 @@ DEF_PARITY = SerialPort::EVEN
 
 
 class Integer
-  def le_word
-    return (0xff & self).chr + (self >> 8).chr
+  def to_word
+    return (self >> 8).chr + (0xff & self).chr
   end
 end
 
@@ -85,9 +85,7 @@ class Modbus
   end
 
   def lrc( pdu )
-    sum = 0
-    pdu.each_byte { |b| sum += b }
-    0xff & ~sum
+    0xff & ~pdu.sum( 128 )
   end
 
   def tx( slave, pdu )
@@ -157,57 +155,55 @@ class Modbus
   end
 
   def readCoils( slave, address, count )
-    tx( slave, 1.chr + address.le_word + count.le_word )
+    tx( slave, 1.chr + address.to_word + count.to_word )
   end
 
   def readDiscretes( slave, address, count )
-    tx( slave, 2.chr + address.le_word + count.le_word )
+    tx( slave, 2.chr + address.to_word + count.to_word )
   end
 
   def readFIFOQueue( slave, queue )
-    tx( slave, 24.chr + queue.le_word )
+    tx( slave, 24.chr + queue.to_word )
   end
 
   def readFileRecord( slave, subreqs )
   end
 
   def readInputs( slave, address, count )
-    tx( slave, 4.chr + address.le_word + count.le_word )
+    tx( slave, 4.chr + address.to_word + count.to_word )
   end
 
   def readRegisters( slave, address, count )
-    tx( slave, 3.chr + address.le_word + count.le_word )
+    tx( slave, 3.chr + address.to_word + count.to_word )
   end
 
   def readWriteRegs( slave, readAddr, count, writeAddr, values )
   end
 
   def writeCoil( slave, address, value )
-    tx( slave, 5.chr + address.le_word + value.le_word )
+    tx( slave, 5.chr + address.to_word + value.to_word )
   end
 
   def writeCoils( slave, address, values )
     count = values.length
-
-    values << 0 while 0 != (7 & values.length)
-    values = [values.to_s].pack( "B#{values.length}" )
-
-    tx( slave, 15.chr + address.le_word + count.le_word + values.length.chr + values )
+    pdu = ""
+    0.step( count, 8 ) { |i| pdu << values[ i...i+8 ].join.reverse.to_i( 2 ).chr }
+    tx( slave, 15.chr + (address - 1).to_word + count.to_word + pdu.length.chr + pdu )
   end
 
   def writeFileRecord( slave, subreqs )
   end
 
   def writeRegister( slave, address, value )
-    tx( slave, 6.chr + address.le_word + value.le_word )
+    tx( slave, 6.chr + address.to_word + value.to_word )
   end
 
   def writeRegisters( slave, address, values )
-    tx( slave, 16.chr + address.le_word + values.length.le_word +
+    tx( slave, 16.chr + address.to_word + values.length.to_word +
          (values.length << 1).chr + values.pack( "v#{values.length}" ) )
   end
 
   def writeRegMask( slave, address, andMask, orMask )
-    tx( slave, 22.chr + address.le_word + andMask.le_word + orMask.le_word )
+    tx( slave, 22.chr + address.to_word + andMask.to_word + orMask.to_word )
   end
 end
