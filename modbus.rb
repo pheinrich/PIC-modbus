@@ -152,15 +152,15 @@ class Modbus
         puts "%2d Entering Listen Only Mode" % i
       elsif 0 != (0x80 & e)
         print "%2d Message Received: " % i
-        print "broadcast/ " if 0 != (0x40 & e)
-        print "listen-only/ " if 0 != (0x20 & e)
-        print "overrun/ " if 0 != (0x10 & e)
-        print "error/" if 0 != (0x02 & e)
+        print "Broadcast/ " if 0 != (0x40 & e)
+        print "Listen-only/ " if 0 != (0x20 & e)
+        print "Overrun/ " if 0 != (0x10 & e)
+        print "Error/" if 0 != (0x02 & e)
         puts
       else
         print "%2d Message Sent: " % i
-        print "listen-only/ " if 0 != (0x20 & e)
-        print "timeout/ " if 0 != (0x10 & e)
+        print "Listen-only/ " if 0 != (0x20 & e)
+        print "Timeout/ " if 0 != (0x10 & e)
         print "NAK err/ " if 0 != (0x08 & e)
         print "Busy err/ " if 0 != (0x04 & e)
         print "Abort err/ " if 0 != (0x02 & e)
@@ -190,8 +190,8 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      bytes, status, events, messages = pdu[1, 7].unpack( "cn3" )
-      log = pdu[8..-1].unpack( "c#{bytes - 6}" )
+      status, events, messages = pdu[2, 6].unpack( "n3" )
+      log = pdu[8..-1].unpack( "c*" )
 
       puts "Slave #{slave} [getEventLog]:"
       puts "  status:   #{0 == status ? "READY" : "BUSY"}"
