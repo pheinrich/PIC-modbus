@@ -115,7 +115,7 @@ class Modbus
 
   def rx
     # DEBUG
-    return 1, "\027\014\000\376\012\315\000\001\000\003\000\015\377" if !@sp
+    return 1, "\025\015\006\000\004\000\007\000\003\006\257\004\276\020\015" if !@sp
 
     adu = @sp.gets if @sp
     puts( "Rx: \"#{adu}\"" )
@@ -171,6 +171,186 @@ class Modbus
   end
 
 
+
+  def diagClear( slave )
+    tx( slave, 8.chr + 10.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      puts "Slave #{slave} [diagClear]"
+    end
+  end
+
+  def diagClearOverrun( slave )
+    tx( slave, 8.chr + 20.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      puts "Slave #{slave} [diagClearOverrun]"
+    end
+  end
+
+  def diagGetBusyCount( slave )
+    tx( slave, 8.chr + 17.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      busy = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetBusyCount]:"
+      puts "  busy: #{busy}"
+      busy
+    end
+  end
+
+  def diagGetErrorCount( slave )
+    tx( slave, 8.chr + 12.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      errors = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetErrorCount]:"
+      puts "  bus errors: #{errors}"
+      errors
+    end
+  end
+
+  def diagGetExceptCount( slave )
+    tx( slave, 8.chr + 13.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      errors = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetExceptCount]"
+      puts "  exceptions: #{errors}"
+      errors
+    end
+  end
+
+  def diagGetMsgCount( slave )
+    tx( slave, 8.chr + 11.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetMsgCount]"
+      puts "  messages: #{messages}"
+      messages
+    end
+  end
+
+  def diagGetNAKCount( slave )
+    tx( slave, 8.chr + 16.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      naks = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetNAKCount]"
+      puts "  NAKs: #{naks}"
+      naks
+    end
+  end
+
+  def diagGetNoRespCount( slave )
+    tx( slave, 8.chr + 15.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      noResp = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetNoRespCount]"
+      puts "  no response: #{noResp}"
+      noResp
+    end
+  end
+
+  def diagGetOverrunCount( slave )
+    tx( slave, 8.chr + 18.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      overruns = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetOverrunCount]"
+      puts "  overruns: #{overruns}"
+      overruns
+    end
+  end
+
+  def diagGetRegister( slave )
+    tx( slave, 8.chr + 2.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      register = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetRegister]"
+      puts "  register: #{register}"
+    end
+  end
+
+  def diagGetSlaveMsgCount( slave )
+    tx( slave, 8.chr + 14.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+
+      puts "Slave #{slave} [diagGetSlaveMsgCount]"
+      puts "  messages: #{messages}"
+    end
+  end
+
+  def diagRestartComm( slave, clearLog = false )
+    tx( slave, 8.chr + 1.to_word + (clearLog ? 0 : 0xff00).to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      puts "Slave #{slave} [diagRestartComm]:"
+      puts "  log: #{clearLog ? "cleared" : "preserved"}"
+    end
+  end
+
+  def diagReturnQuery( slave, data )
+    tx( slave, 8.chr + 0.to_word + data.pack( "c*" ) )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      puts "Slave #{slave} [diagReturnQuery]"
+      pdu[ 3..-1 ].unpack( "c*" )
+    end
+  end
+
+  def diagSetDelim( slave, delim )
+    tx( slave, 8.chr + 3.to_word + delim + 0.chr )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      puts "Slave #{slave} [diagSetDelim]:"
+      puts "  delimiter: \"" + delim + "\""
+    end
+  end
+
+  def diagSetListenOnly( slave )
+    tx( slave, 8.chr + 4.to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      puts "Slave #{slave} [diagSetListenOnly]"
+    end
+  end
+
+  def encapCANopen( slave )
+    puts "Not Yet Implemented"
+  end
+
+  def encapGetDeviceId( slave )
+    puts "Not Yet Implemented"
+  end
 
   def getEventCount( slave )
     tx( slave, 11.chr )
@@ -252,15 +432,35 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      count = pdu[ 3, 2 ].unpack( "n" )
-      queue = pdu[ 5..-1 ].unpack( "n#{count}" )
+      queue = pdu[ 5..-1 ].unpack( "n*" )
 
       puts "Slave #{slave} [readFIFOQueue]"
       queue
     end
   end
 
+  # [[file1, start1, count1], [file2, start2, count2], ... ]
   def readFileRecord( slave, subreqs )
+    pdu = ""
+    subreqs.each { |sr| pdu << 6.chr << sr.pack( "nnn" ) }
+
+    tx( slave, 20.chr + pdu.length.chr + pdu )
+    slave, pdu = rx()
+ 
+    unless is_error?( pdu )
+      records = []
+      offset = 2
+
+      while offset < pdu.length - 3 do
+        records << pdu[ 2 + offset, pdu[ offset ] - 1 ].unpack( "n*" )
+        offset += pdu[ offset ] + 1
+      end
+ 
+      puts "Slave #{slave} [readFileRecord]:"
+      puts "  records: #{records.length}"
+      puts "  total:   #{pdu[ 1 ]} bytes"
+      records
+    end
   end
 
   def readInputs( slave, address, count )
@@ -269,7 +469,7 @@ class Modbus
 
     unless is_error?( pdu )
       puts "Slave #{slave} [readInputs]"
-      inputs = pdu[ 2..-1 ].unpack( "n#{pdu[ 1 ] >> 1}" )
+      inputs = pdu[ 2..-1 ].unpack( "n*" )
     end
   end
 
@@ -279,18 +479,33 @@ class Modbus
 
     unless is_error?( pdu )
       puts "Slave #{slave} [readRegisters]"
-      registers = pdu[ 2..-1 ].unpack( "n#{pdu[ 1 ] >> 1}" )
+      registers = pdu[ 2..-1 ].unpack( "n*" )
     end
   end
 
   def readWriteRegs( slave, readAddr, count, writeAddr, values )
-  end
+    length = values.length
 
-  def writeCoil( slave, address, value )
-    tx( slave, 5.chr + address.to_word + value.to_word )
+    tx( slave, 23.chr + readAddr.to_word + count.to_word +
+        writeAddr.to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      puts "Slave #{slave} [readWriteRegs]"
+      inputs = pdu[ 2..-1 ].unpack( "n*" )
+    end
+  end
+
+  def writeCoil( slave, address, value )
+    tx( slave, 5.chr + (address - 1).to_word + (0 == value ? 0 : 0xff00).to_word )
+    slave, pdu = rx()
+
+    unless is_error?( pdu )
+      value = pdu[ 3, 2 ].unpack( "n" )
+ 
+      puts "Slave #{slave} [writeCoil]:"
+      puts "  coil #{address}: #{0 == value[ 0 ] ? "RESET" : "SET"}"
+      value
     end
   end
 
@@ -303,10 +518,26 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      count = pdu[ 3, 2 ].unpack( "n" )
+ 
+      puts "Slave #{slave} [writeCoils]:"
+      puts "  #{count} coil(s) written"
     end
   end
 
+  # [[file1, start1, [data1]], [file2, start2, [data2]], ... ]
   def writeFileRecord( slave, subreqs )
+    pdu = ""
+    subreqs.each { |sr| pdu << 6.chr << sr.pack( "nn" ) << sr[ 2 ].pack( "n*" ) }
+
+    tx( slave, 21.chr + pdu.length.chr + pdu )
+    slave, pdu = rx()
+ 
+    unless is_error?( pdu )
+      puts "Slave #{slave} [writeFileRecord]:"
+      puts "  records: #{subreqs.length}"
+      puts "  total:   #{pdu[ 1 ]} bytes"
+    end
   end
 
   def writeRegister( slave, address, value )
@@ -314,16 +545,25 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      value = pdu[ 3, 2 ].unpack( "n" )
+
+      puts "Slave #{slave} [writeRegister]:"
+      puts "  register #{address}: 0x%04x" % value
+      value
     end
   end
 
   def writeRegisters( slave, address, values )
     length = values.length
 
-    tx( slave, 16.chr + (address - 1).to_word + length.to_word + (length << 1).chr + values.pack( "v#{length}" ) )
+    tx( slave, 16.chr + (address - 1).to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      count = pdu[ 3, 2 ].unpack( "n" )
+ 
+      puts "Slave #{slave} [writeRegisters]:"
+      puts "  #{count} register(s) written"
     end
   end
 
@@ -332,6 +572,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
+      puts "Slave #{slave} [writeRegMask]"
     end
   end
 end
