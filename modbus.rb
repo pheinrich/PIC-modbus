@@ -50,26 +50,80 @@ class Modbus
                8  => "Memory Parity Error",
                10 => "Gateway Path Unavailable" }
 
-  def initialize( port, baud = DEF_BAUD, databits = DEF_DATABITS, stopbits = DEF_STOPBITS, parity = DEF_PARITY )
-    begin
-      @sp = SerialPort.open( port, baud, databits, stopbits, parity );
-    rescue StandardError => bang
-      puts "Couldn't initialize serial port (#{bang})."
+  class MockPort
+    def initialize
     end
 
-    rtu!
+    def calcParity( value )
+      case $parity
+        when SerialPort::MARK
+          true
+        when SerialPort::SPACE
+          false
+        when SerialPort::EVEN, SerialPort::ODD
+          parity = false
+
+          while 0 != value
+            parity = !parity
+            value &= value - 1
+          end
+
+          parity ^ (SerialPort::EVEN != $parity)
+      end
+    end
+
+    def gets
+      @adu = "\001\002\003\004\005\006\007\010\011\012" if @adu.nil?
+      @adu
+    end
+
+    def puts( adu )
+      adu.each_byte do |b|
+        if SerialPort::NONE != $parity
+          if calcParity( b )
+            b |= 0x100 if 8 == $databits
+            b |= 0x80 if 7 == $databits
+          else
+            b &= 0x0ff if 8 == $databits
+            b &= 0x7f if 7 == $databits
+          end
+        end
+
+        print "%02x " % b
+      end
+      print "\n"
+    end
+  end
+
+  def initialize( port = -1, rtu = true, baud = DEF_BAUD, stopbits = DEF_STOPBITS, parity = DEF_PARITY )
+    $databits = rtu ? 8 : 7
+    $parity = parity
+
+    if -1 == port
+      @sp = MockPort.new
+    else
+      begin
+        @sp = SerialPort.open( port, baud, $databits, stopbits, $parity );
+      rescue StandardError => bang
+        puts "Couldn't initialize serial port (#{bang})."
+      end
+    end
   end
 
   def ascii!
-    @rtu = false
+    $databits = 7
   end
 
   def rtu!
-    @rtu = true
+    $databits = 8
   end
 
   def is_rtu?
-    @rtu
+    8 == $databits
+  end
+
+  def setParity( parity )
+    $parity = parity
   end
 
   def is_error?( pdu )
@@ -114,9 +168,6 @@ class Modbus
   end
 
   def rx
-    # DEBUG
-    return 1, "\025\015\006\000\004\000\007\000\003\006\257\004\276\020\015" if !@sp
-
     adu = @sp.gets if @sp
     puts( "Rx: \"#{adu}\"" )
 
