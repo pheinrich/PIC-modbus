@@ -1,0 +1,19 @@
+// ASCII packet test input
+
+rand 75 125 ms
+
+// getEventCount 1
+3a
+30 b1
+30 e2
+30 63
+8d 0a
+
+rand 75 125 ms
+
+// getEventLog 1
+3a
+30 b1
+30 63
+30 e2
+8d 0a
