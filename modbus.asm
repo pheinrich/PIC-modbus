@@ -40,6 +40,7 @@
    extern   Diag.init
    extern   Frame.begin
    extern   Frame.end
+   extern   Frame.endWithError
    extern   RTU.init
    extern   RTU.isrTimeout
    extern   USART.init
@@ -194,9 +195,9 @@ Modbus.replyMsg:
 Modbus.unsupported:
    ; The requested function or subfunction code wasn't recognized, so we have no
    ; choice but to return a reply containing exception code 1.
-   movlw    Modbus.kErrorBadFunction
    call     Frame.begin
-   goto     Frame.end
+   movlw    Modbus.kErrorBadFunction
+   goto     Frame.endWithError
 
 
 

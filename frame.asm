@@ -25,6 +25,7 @@
    ; Public Methods
    global   Frame.begin
    global   Frame.end
+   global   Frame.endWithError
    global   Frame.isValid
    global   Frame.reset
    global   Frame.rxByte
@@ -52,7 +53,14 @@ Frame.Tail              res   2     ; points to the first byte in the message
 ;; ---------------------------------------------------------------------------
 
 ;; ----------------------------------------------
-;;  void Frame.begin( WREG exception )
+;;  FSR0 Frame.begin()
+;;
+;;  Prepares the transmission buffer to hold a response frame.  The head and
+;;  tail pointers are reset to the start of the buffer, then the slave id and
+;;  function code from the reception buffer are copied over.
+;;
+;;  When this method returns, FSR0 points one byte past the last byte written.
+;;  Other code can then append additional data before calling Frame.end().
 ;;
 Frame.begin:
    ; Save a pointer to the beginning of the message.
@@ -61,9 +69,25 @@ Frame.begin:
 
    ; Copy the device id from the original message, as well as the function code.
    movff    Modbus.kRxSlave, POSTINC0
-   movff    Modbus.kRxFunction, INDF0
-   andlw    0xff                    ; is the exception number 0?
-   bz       initDone                ; yes, skip the error population part
+   movff    Modbus.kRxFunction, POSTINC0
+   return
+
+
+
+;; ----------------------------------------------
+;;  void Frame.end( FSR0 nextByte )
+;;
+Frame.end:
+   CopyWord FSR0L, Frame.Head
+   return
+
+
+
+;; ----------------------------------------------
+;;  void Frame.endWithError( WREG exception, FSR0 nextByte  )
+;;
+Frame.endWithError:
+   lfsr     FSR0, Modbus.kTxErrorCode
 
    ; Turn this into an exception PDU.
    bsf      POSTINC0, 7             ; set the function code's high bit
@@ -72,7 +96,7 @@ Frame.begin:
    ; Based on the exception code, we need to update our event log.
    movlw    Modbus.kErrorMemoryParity
    cpfslt   INDF0
-     bra    initDone
+     bra    errorDone
 
    movlw    Modbus.kErrorNAKSent
    cpfslt   INDF0
@@ -87,19 +111,10 @@ Frame.begin:
      bsf    Modbus.Event, Modbus.kTxEvt_AbortEx
    bsf      Modbus.Event, Modbus.kTxEvt_ReadEx
 
-initDone:
+errorDone:
    ; Advance the pointer one byte.
    movf     POSTINC0, W
-   return
-
-
-
-;; ----------------------------------------------
-;;  void Frame.end()
-;;
-Frame.end:
-   CopyWord FSR0L, Frame.Head
-   return
+   bra      Frame.end
 
 
 
@@ -109,6 +124,7 @@ Frame.end:
 Frame.isValid:
    ; Verify the message is addressed to this device.
    bsf      Modbus.Event, Modbus.kRxEvt_Broadcast ; assume broadcast message
+   movlb    1
    movf     Modbus.kRxBuffer, W     ; is this a broadcast message (0 == address)?
    bz       valChecksum             ; yes, validate the checksum
 

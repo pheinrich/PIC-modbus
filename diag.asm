@@ -31,9 +31,12 @@
    global   Diag.logTxEvt
 
    ; Dependencies
+   extern   Frame.begin
+   extern   Frame.end
    extern   Modbus.Event
    extern   Modbus.unsupported
    extern   Util.Frame
+   extern   Util.Save
    extern   VTable.dispatch
 
 
@@ -104,7 +107,9 @@ Diag.diagnostics:
 ;;  void Diag.getEventCount()
 ;;
 Diag.getEventCount:
-   return
+   call     Frame.begin             ; start a new frame
+   rcall    logDetails              ; include device status and event count
+   goto     Frame.end               ; end the frame
 
 
 
@@ -112,7 +117,45 @@ Diag.getEventCount:
 ;;  void Diag.getEventLog()
 ;;
 Diag.getEventLog:
-   return
+   ; Start a new frame and initialize it.
+   call     Frame.begin
+
+   ; Add some header data.
+   movlw    6
+   movwf    POSTINC0                ; save space for the byte count
+   rcall    logDetails              ; include device status and event count
+
+   movff    Diag.NumSlaveMsgs + 1, POSTINC0
+   movff    Diag.NumSlaveMsgs, POSTINC0
+
+   ; Calculate how many events are in the circular event log.
+   movf     Diag.LogTail, W
+   subwf    Diag.LogHead, W         ; W = head - tail
+   btfsc    STATUS, N               ; is tail > head?
+     addlw  Modbus.kLogBufLen       ; yes, adjust for wrap-around
+
+   movlb    2
+   addwf    Modbus.kTxByteCount, F  ; update byte count in frame
+   movwf    Util.Save               ; store as counter variable
+   incf     Util.Save
+
+   ; Add the actual event log entries to the frame.
+   lfsr     FSR1, Modbus.kLogBuffer ; set base pointer
+   movf     Diag.LogHead, W         ; offset index to next empty entry
+   bra      chkLoop                 ; skip to loop termination check
+
+logLoop:
+   decf     WREG                    ; predecrement the index
+   btfsc    STATUS, N               ; has index moved past start of log buffer?
+     addlw  Modbus.kLogBufLen       ; yes, reposition to end
+   movff    PLUSW1, POSTINC0        ; copy from the log to the frame
+
+chkLoop:
+   decfsz   Util.Save               ; have we transferred all the entries?
+     bra    logLoop                 ; no, loop until done
+
+   ; End the frame.
+   goto     Frame.end
 
 
 
@@ -263,7 +306,7 @@ txWrite:
 ;;  (the head pointer may move to compensate).
 ;;
 Diag.storeLogByte:
-   ; Keep track of overall event count, even across comm restarts.
+   ; Keep track of overall event count.
    IncrementWord Diag.NumEvents
 
    ; Store the event byte at the tail of the buffer.
@@ -288,6 +331,16 @@ Diag.storeLogByte:
    cpfslt   Diag.LogTail            ; is the new tail >= max buffer length?
      clrf   Diag.LogTail            ; yes, reset to 0
 
+   return
+
+
+
+;; ----------------------------------------------
+;;  FSR0 begin()
+;;
+begin:
+   call     Frame.begin
+   movff    Modbus.kRxSubFunction, Modbus.kTxSubFunction
    return
 
 
@@ -391,6 +444,29 @@ getRegister:
 ;;
 ;;
 getSlaveMsgCount:
+   return
+
+
+
+;; ----------------------------------------------
+;;  FSR0 logDetails( FSR0 nextByte )
+;;
+;;  Adds some basic event log data to the current response frame.  This data
+;;  is returned for both the Modbus.kGetEventCount and Modbus.kGetEventLog
+;;  commands, so we share the common code.
+;;
+logDetails:
+   ; Calculate the current status.
+   movlw    0x00                    ; assume we're idle (0x0000)
+   btfsc    Diag.Options, Modbus.kDiag_Busy ; are we actually busy?
+     movlw  0xff                    ; yes, return 0xffff
+
+   movwf    POSTINC0                ; add the status to the frame
+   movwf    POSTINC0
+
+   ; Add the event count to the frame, too.
+   movff    Diag.NumEvents + 1, POSTINC0
+   movff    Diag.NumEvents, POSTINC0
    return
 
 
