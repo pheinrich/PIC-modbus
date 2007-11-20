@@ -206,7 +206,7 @@ class Modbus
         print "Broadcast/ " if 0 != (0x40 & e)
         print "Listen-only/ " if 0 != (0x20 & e)
         print "Overrun/ " if 0 != (0x10 & e)
-        print "Error/" if 0 != (0x02 & e)
+        print "Checksum/" if 0 != (0x02 & e)
         puts
       else
         print "%2d Message Sent: " % i

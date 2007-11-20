@@ -134,7 +134,7 @@ Diag.getEventLog:
    btfsc    STATUS, N               ; is tail > head?
      addlw  Modbus.kLogBufLen       ; yes, adjust for wrap-around
 
-   movlb    2
+   BankSelect Modbus.kTxByteCount
    addwf    Modbus.kTxByteCount, F  ; update byte count in frame
    movwf    Util.Save               ; store as counter variable
    incf     Util.Save
@@ -309,7 +309,7 @@ Diag.storeLogByte:
    ; Keep track of overall event count.
    IncrementWord Diag.NumEvents
 
-   ; Store the event byte at the tail of the buffer.
+   ; Store the event byte at the head of the buffer.
    lfsr     FSR0, Modbus.kLogBuffer
    movf     Diag.LogHead, W
    movff    Modbus.Event, PLUSW0
@@ -338,6 +338,9 @@ Diag.storeLogByte:
 ;; ----------------------------------------------
 ;;  FSR0 begin()
 ;;
+;;  Initializes the transmission frame in preparation for a diagnostic message
+;;  with function and subfunction codes.
+;;
 begin:
    call     Frame.begin
    movff    Modbus.kRxSubFunction, Modbus.kTxSubFunction
@@ -346,10 +349,13 @@ begin:
 
 
 ;; ----------------------------------------------
+;;  void clear()
 ;;
+;;  Clears error status and counts.
 ;;
 clear:
-   return
+   rcall    begin
+   goto     Frame.end
 
 
 
@@ -373,21 +379,6 @@ getBusyCount:
 ;;
 ;;
 getErrorCount:
-   return
-
-
-
-;; ----------------------------------------------
-;;  WREG getEventCount()
-;;
-;;  Returns the number of events currently stored in the circular event log
-;;  buffer, computed as the difference between the head and tail pointers.
-;;
-getEventCount:
-   movf     Diag.LogHead, W
-   subwf    Diag.LogTail, W
-   btfsc    STATUS, N
-     addlw  Modbus.kLogBufLen
    return
 
 

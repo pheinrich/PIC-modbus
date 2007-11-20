@@ -124,7 +124,7 @@ errorDone:
 Frame.isValid:
    ; Verify the message is addressed to this device.
    bsf      Modbus.Event, Modbus.kRxEvt_Broadcast ; assume broadcast message
-   movlb    0
+   BankSelect Modbus.kRxBuffer
    movf     Modbus.kRxBuffer, W     ; is this a broadcast message (0 == address)?
    bz       valChecksum             ; yes, validate the checksum
 
