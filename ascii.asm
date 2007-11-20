@@ -61,7 +61,7 @@ kOneSecond              equ   1 + (kFrequency / (4 * 65536))
 ;;  we must count repeated overflows, so this macro also clears that counter.
 ;;
 ResetTimer1             macro
-   movlw    kOneSecond
+   movlw    (5*kOneSecond)/2
    movwf    ASCII.Timeouts          ; prepare to measure 1 second
 
    ; Stop the timer and prepare to initialize its countdown period.
@@ -214,6 +214,7 @@ rxWaiting:
    bnz      rxDone                  ; yes, discard the frame
    CopyWord Frame.Head, FSR1L       ; save the old value for later
 
+
    movlw    0x2                     ; rewind 2 characters
    subwf    Frame.Head, F
    movlw    0x0
@@ -270,7 +271,8 @@ timeoutUpdate:
    decfsz   ASCII.Timeouts, F       ; has 1 second expired?
      return                         ; no, keep waiting
 
-   bsf      Modbus.Event, Modbus.kRxEvt_CommErr; yes, so frame is incomplete
+   movlw    Modbus.kState_Idle
+   movwf    Modbus.State
    bcf      PIE1, TMR1IE            ; disable redundant timer1 interrupts
    return
 

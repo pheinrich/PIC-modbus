@@ -148,7 +148,7 @@ class Modbus
   end
 
   def lrc( pdu )
-    0xff & ~pdu.sum( 128 )
+    0xff & -pdu.sum( 128 )
   end
 
   def tx( slave, pdu )
