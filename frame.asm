@@ -24,6 +24,7 @@
 
    ; Public Methods
    global   Frame.begin
+   global   Frame.beginEcho
    global   Frame.end
    global   Frame.endWithError
    global   Frame.isValid
@@ -71,6 +72,42 @@ Frame.begin:
    movff    Modbus.kRxSlave, POSTINC0
    movff    Modbus.kRxFunction, POSTINC0
    return
+
+
+
+;; ----------------------------------------------
+;;  FSR0 Frame.echo()
+;;
+;;  Prepares the transmission buffer with a copy of the received frame (it's
+;;  common for Modbus functions to simply echo request data).  On completion,
+;;  FSR0 will point one byte past the last one written to the new frame.  The
+;;  caller may then use Frame.end() or Frame.endWithError() to terminate the
+;;  frame, as usual.
+;;
+Frame.beginEcho:
+   ; Set pointers to both buffers (Rx and Tx).
+   lfsr     FSR0, Modbus.kTxBuffer
+   lfsr     FSR1, Modbus.kRxBuffer
+
+echoLoop:
+   ; Have we advanced our pointer past the last received byte?
+   movf     FSR1L, W
+   cpfseq   Frame.Head              ; low words match?
+     bra    echoNext                ; no, keep copying
+
+   movf     FSR1H, W
+   cpfseq   Frame.Head + 1          ; high words match?
+     bra    echoNext                ; no, keep copying
+
+   ; We've copied the whole reception buffer, so exit.
+   rcall    Frame.reset             ; resets Frame.Head and Frame.Tail from FSR0
+   SetWord Modbus.kTxBuffer, Frame.Tail ; correct tail (buffer start) pointer
+   return
+
+echoNext:
+   ; Copy the next byte, advancing both pointers.
+   movf     POSTINC1, POSTINC0
+   bra      echoLoop
 
 
 

@@ -100,9 +100,9 @@ Modbus.kCmdEvt_ListenOnly     equ   0x04
 Modbus.kCmdEvt_Restart        equ   0x00
 
 ; Option flags
-Modbus.kDiag_RetQuery         equ   7
-Modbus.kDiag_ListenOnly       equ   6
-Modbus.kDiag_Busy             equ   5
+Modbus.kDiag_ListenOnly       equ   7
+Modbus.kDiag_Busy             equ   6
+Modbus.kDiag_DontCountEvent   equ   5
 
 ; Base pointers to special buffers.  ASCII mode requires special buffer
 ; handling, since we don't have enough memory for two independent buffers.
@@ -125,6 +125,7 @@ Modbus.kASCIIBufLen           equ   0x201
 Modbus.kRxSlave               equ   Modbus.kRxBuffer
 Modbus.kRxFunction            equ   Modbus.kRxBuffer + 1
 Modbus.kRxSubFunction         equ   Modbus.kRxBuffer + 2
+Modbus.kRxDelimiter           equ   Modbus.kRxBuffer + 4
 
 Modbus.kTxSlave               equ   Modbus.kTxBuffer
 Modbus.kTxFunction            equ   Modbus.kTxBuffer + 1

@@ -38,6 +38,8 @@
    extern   Diag.getEventCount
    extern   Diag.getEventLog
    extern   Diag.init
+   extern   Diag.noResponse
+   extern   Diag.Options
    extern   Frame.begin
    extern   Frame.end
    extern   Frame.endWithError
@@ -158,6 +160,15 @@ Modbus.replyMsg:
    cpfseq   Modbus.State            ; is there a message waiting for us?
      return                         ; no, bail
 
+   ; If in listen-only mode, maintain radio silence.
+   btfss    Diag.Options, Modbus.kDiag_ListenOnly ; listen-only mode?
+     bra    reply                   ; no, go ahead and reply as usual
+
+   ; Monitoring messages only, so we're done with this one.
+   movlw    Modbus.kState_Idle
+   movwf    Modbus.State
+   goto     Diag.noResponse
+
    ; DEBUG copy the received message to the transmit buffer (echo the message).
 ;   CopyWord Frame.Tail, FSR0L       ; debug
 ;   movlw    LOW Modbus.kTxBuffer    ; debug
@@ -175,6 +186,7 @@ Modbus.replyMsg:
 ;     bra    copyIt                  ; debug
 ;   CopyWord FSR1L, Frame.Head       ; debug
 
+reply:
    ; Change state and enable the character transmitted interrupt.  If the transmit
    ; buffer is empty, this will fire immediately, otherwise it will trigger after
    ; the current byte is transmitted.
