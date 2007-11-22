@@ -115,15 +115,8 @@ ASCII.init:
    movwf    Modbus.State
 
    ; Hook the serial port.
-   movlw    LOW ASCII.isrRx	   ; set the reception callback
-   movwf    USART.HookRx
-   movlw    HIGH ASCII.isrRx
-   movwf    USART.HookRx + 1
-
-   movlw    LOW ASCII.isrTx	   ; set the transmission callback
-   movwf    USART.HookTx
-   movlw    HIGH ASCII.isrTx
-   movwf    USART.HookTx + 1
+   SetWord ASCII.isrRx, USART.HookRx ; set the reception callback
+   SetWord ASCII.isrTx, USART.HookTx ; set the transmission callback
 
    return
 
@@ -213,7 +206,6 @@ rxWaiting:
    andwf    Modbus.Event, W         ; were there communication errors?
    bnz      rxDone                  ; yes, discard the frame
    CopyWord Frame.Head, FSR1L       ; save the old value for later
-
 
    movlw    0x2                     ; rewind 2 characters
    subwf    Frame.Head, F
@@ -413,7 +405,7 @@ a2rUpdate:
 
 
 ;; ----------------------------------------------
-;;  void calcLRC( const char buffer[] )
+;;  void calcLRC( FSR0 buffer )
 ;;
 ;;  Calculates the Longitudinal Redundancy Checksum on the ASCII characters in
 ;;  the message buffer, not including the checksum at the end (inserted by the

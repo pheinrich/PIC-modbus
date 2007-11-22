@@ -175,15 +175,8 @@ copyDelays:
      bra    $-6
 
    ; Hook the serial port.
-   movlw    LOW RTU.isrRx	         ; set the reception callback
-   movwf    USART.HookRx
-   movlw    HIGH RTU.isrRx
-   movwf    USART.HookRx + 1
-
-   movlw    LOW RTU.isrTx	         ; set the transmission callback
-   movwf    USART.HookTx
-   movlw    HIGH RTU.isrTx
-   movwf    USART.HookTx + 1
+   SetWord RTU.isrRx, USART.HookRx  ; set the reception callback
+   SetWord RTU.isrTx, USART.HookTx  ; set the transmission callback
 
    ; Initialize the state machine.
    clrf     Modbus.State

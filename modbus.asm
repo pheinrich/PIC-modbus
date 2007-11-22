@@ -96,7 +96,7 @@ Modbus.dispatchMsg:
 
 
 ;; ----------------------------------------------
-;;  void Modbus.init( bool ascii, enum baud, enum parity )
+;;  void Modbus.init( frame[0] ascii, frame[1] baud, frame[2] enum parity )
 ;;
 ;;  Initializes a state machine appropriate to the operating mode specified,
 ;;  then resets the diagnostic registers and clears the event log.  Finally,
@@ -169,23 +169,6 @@ Modbus.replyMsg:
    movwf    Modbus.State
    goto     Diag.noResponse
 
-   ; DEBUG copy the received message to the transmit buffer (echo the message).
-;   CopyWord Frame.Tail, FSR0L       ; debug
-;   movlw    LOW Modbus.kTxBuffer    ; debug
-;   movwf    FSR1L                   ; debug
-;   movlw    HIGH Modbus.kTxBuffer   ; debug
-;   movwf    FSR1H                   ; debug
-;                                    ; debug
-;copyLoop:                           ; debug
-;   movf     FSR0L, W                ; debug
-;   cpfseq   Frame.Head              ; debug
-;     bra    copyIt                  ; debug
-;                                    ; debug
-;   movf     FSR0H, W                ; debug
-;   cpfseq   Frame.Head + 1          ; debug
-;     bra    copyIt                  ; debug
-;   CopyWord FSR1L, Frame.Head       ; debug
-
 reply:
    ; Change state and enable the character transmitted interrupt.  If the transmit
    ; buffer is empty, this will fire immediately, otherwise it will trigger after
@@ -195,18 +178,15 @@ reply:
    bsf      PIE1, TXIE              ; enable the interrupt
    return
 
-;copyIt:                             ; debug
-;   movff    POSTINC0, POSTINC1      ; debug
-;   bra      copyLoop                ; debug
-
 
 
 ;; ----------------------------------------------
 ;;  void Modbus.unsupported()
 ;;
+;;  Creates an exception response with an error code of 1, which indicates an
+;;  invalid function or subfunction has been requested.
+;;
 Modbus.unsupported:
-   ; The requested function or subfunction code wasn't recognized, so we have no
-   ; choice but to return a reply containing exception code 1.
    call     Frame.begin
    movlw    Modbus.kErrorBadFunction
    goto     Frame.endWithError

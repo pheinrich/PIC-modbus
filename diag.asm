@@ -76,6 +76,12 @@ Register                res   2
 .diag                   code
 ;; ---------------------------------------------------------------------------
 
+;; ----------------------------------------------
+;;  Diagnostics Virtual Function Table
+;;
+;;  This table associates Modbus diagnostic subfunction codes with specific
+;;  handler methods.  See VTable.dispatch() for more information.
+;;
 DiagnosticsVTbl:
    data     Modbus.kDiagReturnQuery, returnQuery
    data     Modbus.kDiagRestartComm, restartComm
@@ -99,9 +105,16 @@ DiagnosticsVTbl:
 ;; ----------------------------------------------
 ;;  void Diag.diagnostics()
 ;;
+;;  Handles the diagnostic family of Modbus functions.  Since these are all
+;;  attached to subfunction codes, this method extracts the subfunction id from
+;;  the received message, then dispatches through the vtable above.
+;;
 Diag.diagnostics:
+   ; Pull the 16-bit subfunction identifier from the request.
    movff    Modbus.kRxSubFunction, Util.Frame
    movff    Modbus.kRxSubFunction + 1, Util.Frame + 1
+
+   ; Use the id to perform a virtual function call.
    SetTableBase DiagnosticsVTbl
    goto     VTable.dispatch
 
@@ -109,6 +122,10 @@ Diag.diagnostics:
 
 ;; ----------------------------------------------
 ;;  void Diag.getEventCount()
+;;
+;;  Returns a frame describing the number of bus "events" detected by this de-
+;;  vice.  An event is simply a message received or transmitted, whether it's
+;;  addressed to us or not.
 ;;
 Diag.getEventCount:
    call     Frame.begin             ; start a new frame
@@ -121,6 +138,12 @@ Diag.getEventCount:
 
 ;; ----------------------------------------------
 ;;  void Diag.getEventLog()
+;;
+;;  Returns a frame containing log entries for up to 64 of the most recent
+;;  events recorded by this device.  Each entry is single byte whose format
+;;  varies according to event type, error conditions, and our own state.  For
+;;  more information, see Diag.logRxEvt(), Diag.logTxEvt(), Diag.logRestart(),
+;;  or Diag.logListenOnly().
 ;;
 Diag.getEventLog:
    ; Start a new frame and initialize it.
@@ -169,6 +192,9 @@ chkLoop:
 ;; ----------------------------------------------
 ;;  void Diag.init()
 ;;
+;;  Initializes this device's diagnostics, which means clearing all counters
+;;  and the event log.
+;;
 Diag.init:
    ; Point to our block of local variables, with total byte length in W.
    lfsr     FSR0, Diag.ExceptStatus
@@ -186,6 +212,9 @@ Diag.init:
 ;; ----------------------------------------------
 ;;  void Diag.logListenOnly()
 ;;
+;;  Adds a single event log entry describing a request to enter listen-only
+;;  mode.
+;;
 Diag.logListenOnly:
    movlw    Modbus.kCmdEvt_ListenOnly
    bra      storeLogByte
@@ -194,6 +223,9 @@ Diag.logListenOnly:
 
 ;; ----------------------------------------------
 ;;  void Diag.logRestart()
+;;
+;;  Adds a single event log entry describing a request to restart the commun-
+;;  ication system.
 ;;
 Diag.logRestart:
    movlw    Modbus.kCmdEvt_Restart
@@ -299,6 +331,10 @@ txWrite:
 
 ;; ----------------------------------------------
 ;;  void Diag.noResponse()
+;;
+;;  Increments the counter tracking messages recognized but not responded to.
+;;  These generally correspond to any message we receive while in listen-only
+;;  mode.
 ;;
 Diag.noResponse:
    IncrementWord NumNoResponse
@@ -440,7 +476,9 @@ getOverrunCount:
 ;; ----------------------------------------------
 ;;  void getRegister()
 ;;
-;;  Returns the diagnostic register.
+;;  Returns the diagnostic register.  The Modbus documentation is pretty light
+;;  on this subject, neglecting to define the diagnostic register or describe
+;;  its use.  That implies it may be application-specific.
 ;;
 getRegister:
    rcall    begin

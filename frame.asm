@@ -61,7 +61,8 @@ Frame.Tail              res   2     ; points to the first byte in the message
 ;;  function code from the reception buffer are copied over.
 ;;
 ;;  When this method returns, FSR0 points one byte past the last byte written.
-;;  Other code can then append additional data before calling Frame.end().
+;;  Other code can then append additional data before calling Frame.end() or
+;;  Frame.endWithError().
 ;;
 Frame.begin:
    ; Save a pointer to the beginning of the message.
@@ -114,6 +115,9 @@ echoNext:
 ;; ----------------------------------------------
 ;;  void Frame.end( FSR0 nextByte )
 ;;
+;;  Terminates the frame by saving the current pointer as the new head.  It
+;;  will then be used to compute the frame length.
+;;
 Frame.end:
    CopyWord FSR0L, Frame.Head
    return
@@ -122,6 +126,10 @@ Frame.end:
 
 ;; ----------------------------------------------
 ;;  void Frame.endWithError( WREG exception, FSR0 nextByte  )
+;;
+;;  Discards the current contents of the frame and reinitializes it to be an
+;;  exception response.  This method also sets the correct event flags based
+;;  on the specified exception code, then terminates the frame.
 ;;
 Frame.endWithError:
    lfsr     FSR0, Modbus.kTxErrorCode
@@ -158,6 +166,10 @@ errorDone:
 ;; ----------------------------------------------
 ;;  WREG Frame.isValid()
 ;;
+;;  Returns true (0xff) if the current frame is "valid," in that it's addressed
+;;  to this device (or is a broadcast message) and its checksum is correct.  If
+;;  not, this method returns false (0x00).
+;;
 Frame.isValid:
    ; Verify the message is addressed to this device.
    bsf      Modbus.Event, Modbus.kRxEvt_Broadcast ; assume broadcast message
@@ -167,7 +179,7 @@ Frame.isValid:
 
    bcf      Modbus.Event, Modbus.kRxEvt_Broadcast ; no, clear our assumption
    cpfseq   Modbus.Address          ; is it addressed to this specific device?
-     retlw  0xff                    ; no, discard frame
+     retlw  0x00                    ; no, discard frame
 
 valChecksum:
    ; This message is addressed to us.
@@ -175,7 +187,7 @@ valChecksum:
 
    ; If checksum validation is turned off, we're done.
    tstfsz   Modbus.NoChecksum
-     retlw  0
+     retlw  0xff
 
    ; Set a pointer to the last byte in the message buffer.
    CopyWord Frame.Head, FSR0L
@@ -184,15 +196,15 @@ valChecksum:
    ; Compare the checksum included in the message to the one we calculated.
    movf     POSTINC0, W             ; fetch the LSB
    cpfseq   Frame.Checksum          ; does it match the computed value?
-     retlw  0xff                    ; no, discard the frame  TODO: log event
+     retlw  0x00                    ; no, discard the frame  TODO: log event
 
    movf     INDF0, W                ; yes, fetch the MSB
    cpfseq   Frame.Checksum + 1      ; does it match the computed value?
-     retlw  0xff                    ; no, discard the frame  TODO: log event
+     retlw  0x00                    ; no, discard the frame  TODO: log event
 
    ; Success, so clear our earlier assumption about a bad checksum.
    bcf      Modbus.Event, Modbus.kRxEvt_CommErr
-   retlw    0
+   retlw    0xff
 
 
 
@@ -221,12 +233,12 @@ Frame.reset:
 ;; ----------------------------------------------
 ;;  void Frame.rxByte( WREG value )
 ;;
-;;  todo: bounds checking
+;;  Store the byte at the next message buffer location.  A tail pointer keeps
+;;  track of where it goes, so we fetch it first, then update its value with
+;;  the new tail location when we're finished.
 ;;
 Frame.rxByte:
-   ; Store the byte at the next message buffer location.  A tail pointer keeps
-   ; track of where it goes, so we fetch it first, then update its value with the
-   ; new tail location when we're finished.
+   ;  TODO: bounds checking
    CopyWord Frame.Head, FSR1L
    movwf    POSTINC1
    CopyWord FSR1L, Frame.Head
@@ -235,7 +247,7 @@ Frame.rxByte:
 
 
 ;; ----------------------------------------------
-;;  WREG+C Frame.txByte()
+;;  WREG, Carry Frame.txByte()
 ;;
 Frame.txByte:
    ; Make sure we're not trying to read past the end of the buffer.
