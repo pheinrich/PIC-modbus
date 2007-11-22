@@ -111,8 +111,8 @@ DiagnosticsVTbl:
 ;;
 Diag.diagnostics:
    ; Pull the 16-bit subfunction identifier from the request.
-   movff    Modbus.kRxSubFunction, Util.Frame
-   movff    Modbus.kRxSubFunction + 1, Util.Frame + 1
+   movff    Modbus.kRxSubFunction + 1, Util.Frame
+   movff    Modbus.kRxSubFunction, Util.Frame + 1
 
    ; Use the id to perform a virtual function call.
    SetTableBase DiagnosticsVTbl
@@ -164,7 +164,7 @@ Diag.getEventLog:
    btfsc    STATUS, N               ; is tail > head?
      addlw  Modbus.kLogBufLen       ; yes, adjust for wrap-around
 
-   BankSelect Modbus.kTxByteCount
+   SetBank Modbus.kTxByteCount
    addwf    Modbus.kTxByteCount, F  ; update byte count in frame
    movwf    Util.Save               ; store as counter variable
    incf     Util.Save
@@ -350,7 +350,8 @@ Diag.noResponse:
 ;;
 begin:
    call     Frame.begin
-   movff    Modbus.kRxSubFunction, Modbus.kTxSubFunction
+   movff    Modbus.kRxSubFunction, POSTINC0
+   movff    Modbus.kRxSubFunction + 1, POSTINC0
    return
 
 

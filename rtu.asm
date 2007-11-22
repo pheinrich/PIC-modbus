@@ -313,8 +313,8 @@ timeoutWaiting:
    lfsr     FSR0, Modbus.kRxBuffer  ; FSR0 = message tail
    rcall    calcCRC
    call     Frame.isValid
-   tstfsz   WREG                    ; was the validation successful?
-     bra    timeoutDone             ; no, discard the frame
+   andlw    0xff                    ; was the validation successful?
+   bz       timeoutDone             ; no, discard the frame
 
    ; No reception errors, no checksum errors, and the message is addressed to us.
    movlw    Modbus.kState_MsgQueued ; alert the main event loop that a message has arrived

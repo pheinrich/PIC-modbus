@@ -160,9 +160,12 @@ Modbus.replyMsg:
    cpfseq   Modbus.State            ; is there a message waiting for us?
      return                         ; no, bail
 
-   ; If in listen-only mode, maintain radio silence.
+   ; If the last message received was a broadcast message, or this device is in
+   ; listen-only mode, maintain radio silence.
    btfss    Diag.Options, Modbus.kDiag_ListenOnly ; listen-only mode?
      bra    reply                   ; no, go ahead and reply as usual
+
+   ; TODO:  If the last message was a broadcast message, don't reply.
 
    ; Monitoring messages only, so we're done with this one.
    movlw    Modbus.kState_Idle

@@ -77,7 +77,7 @@ Frame.begin:
 
 
 ;; ----------------------------------------------
-;;  FSR0 Frame.echo()
+;;  FSR0 Frame.beginEcho()
 ;;
 ;;  Prepares the transmission buffer with a copy of the received frame (it's
 ;;  common for Modbus functions to simply echo request data).  On completion,
@@ -107,7 +107,7 @@ echoLoop:
 
 echoNext:
    ; Copy the next byte, advancing both pointers.
-   movf     POSTINC1, POSTINC0
+   movff    POSTINC1, POSTINC0
    bra      echoLoop
 
 
@@ -173,7 +173,7 @@ errorDone:
 Frame.isValid:
    ; Verify the message is addressed to this device.
    bsf      Modbus.Event, Modbus.kRxEvt_Broadcast ; assume broadcast message
-   BankSelect Modbus.kRxBuffer
+   SetBank Modbus.kRxBuffer
    movf     Modbus.kRxBuffer, W     ; is this a broadcast message (0 == address)?
    bz       valChecksum             ; yes, validate the checksum
 
