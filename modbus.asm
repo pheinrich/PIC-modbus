@@ -26,10 +26,12 @@
    ; Public Methods
    global   Modbus.builtin
    global   Modbus.dispatchMsg
+   global   Modbus.illegalAddress
+   global   Modbus.illegalData
+   global   Modbus.illegalFunction
    global   Modbus.init
    global   Modbus.isr
    global   Modbus.replyMsg
-   global   Modbus.unsupported
 
    ; Dependencies
    extern   ASCII.init
@@ -72,7 +74,7 @@ BuiltinVTbl:
    data     Modbus.kDiagnostics, Diag.diagnostics
    data     Modbus.kGetEventCount, Diag.getEventCount
    data     Modbus.kGetEventLog, Diag.getEventLog
-   data     -1, Modbus.unsupported
+   data     -1, Modbus.illegalFunction
 
 
 
@@ -92,6 +94,45 @@ Modbus.dispatchMsg:
    movff    Modbus.kRxFunction, Util.Frame
    clrf     Util.Frame + 1
    goto     VTable.dispatch
+
+
+
+;; ----------------------------------------------
+;;  void Modbus.illegalAddress()
+;;
+;;  Creates an exception response with an error code of 2, which indicates an
+;;  invalid data address.
+;;
+Modbus.illegalAddress:
+   call     Frame.begin
+   movlw    Modbus.kErrorBadAddress
+   goto     Frame.endWithError
+
+
+
+;; ----------------------------------------------
+;;  void Modbus.illegalData()
+;;
+;;  Creates an exception response with an error code of 3, which indicates a
+;;  value in the query data field isn't allowed.
+;;
+Modbus.illegalData:
+   call     Frame.begin
+   movlw    Modbus.kErrorBadData
+   goto     Frame.endWithError
+
+
+
+;; ----------------------------------------------
+;;  void Modbus.illegalFunction()
+;;
+;;  Creates an exception response with an error code of 1, which indicates an
+;;  invalid function or subfunction has been requested.
+;;
+Modbus.illegalFunction:
+   call     Frame.begin
+   movlw    Modbus.kErrorBadFunction
+   goto     Frame.endWithError
 
 
 
@@ -180,19 +221,6 @@ reply:
    movwf    Modbus.State
    bsf      PIE1, TXIE              ; enable the interrupt
    return
-
-
-
-;; ----------------------------------------------
-;;  void Modbus.unsupported()
-;;
-;;  Creates an exception response with an error code of 1, which indicates an
-;;  invalid function or subfunction has been requested.
-;;
-Modbus.unsupported:
-   call     Frame.begin
-   movlw    Modbus.kErrorBadFunction
-   goto     Frame.endWithError
 
 
 

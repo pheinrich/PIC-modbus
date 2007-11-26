@@ -34,7 +34,7 @@ Modbus.kWriteFileRecord       equ   21    ; sub-function always 6
 Modbus.kWriteRegMask          equ   22
 Modbus.kReadWriteRegs         equ   23
 Modbus.kReadFIFOQueue         equ   24
-Modbus.kEncapsulated          equ   43    ; sub-functions below
+Modbus.kMEITransport          equ   43    ; sub-functions below
 
 ; Subfunction codes for the Modbus.kDiagnostics function.
 Modbus.kDiagReturnQuery       equ   0
@@ -56,6 +56,22 @@ Modbus.kDiagClearOverrun      equ   20
 ; Subfunction codes for the Modbus.kEncapsulated function.
 Modbus.kEncapCANopen          equ   13
 Modbus.kEncapGetDeviceId      equ   14
+
+; Device id codes.
+Modbus.kDevIdBasic            equ   1
+Modbus.kDevIdRegular          equ   2
+Modbus.kDevIdExtended         equ   3
+Modbus.kDevIdIndividual       equ   4
+
+; Device id objects.
+Modbus.kDevIdBasic_First      equ   0
+Modbus.kDevIdBasic_Last       equ   2
+Modbus.kDevIdRegular_First    equ   3
+Modbus.kDevIdRegular_Last     equ   127
+Modbus.kDevIdExtended_First   equ   128
+Modbus.kDevIdExtended_Last    equ   255
+Modbus.kDevIdReserved_First   equ   7
+Modbus.kDevIdReserved_Last    equ   127
 
 ; Possible exception codes.
 Modbus.kErrorBadFunction      equ   1
@@ -126,6 +142,8 @@ Modbus.kRxSlave               equ   Modbus.kRxBuffer
 Modbus.kRxFunction            equ   Modbus.kRxBuffer + 1
 Modbus.kRxSubFunction         equ   Modbus.kRxBuffer + 2
 Modbus.kRxDelimiter           equ   Modbus.kRxBuffer + 4
+Modbus.kRxReadDeviceIdCode    equ   Modbus.kRxBuffer + 4
+Modbus.kRxObjectId            equ   Modbus.kRxBuffer + 5
 
 Modbus.kTxSlave               equ   Modbus.kTxBuffer
 Modbus.kTxFunction            equ   Modbus.kTxBuffer + 1

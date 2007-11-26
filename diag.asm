@@ -36,9 +36,10 @@
    extern   ASCII.Delimiter
    extern   Frame.begin
    extern   Frame.beginEcho
+   extern   Frame.beginWithSub
    extern   Frame.end
    extern   Modbus.Event
-   extern   Modbus.unsupported
+   extern   Modbus.illegalFunction
    extern   Util.Frame
    extern   Util.Save
    extern   VTable.dispatch
@@ -98,7 +99,7 @@ DiagnosticsVTbl:
    data     Modbus.kDiagGetBusyCount, getBusyCount
    data     Modbus.kDiagGetOverrunCount, getOverrunCount
    data     Modbus.kDiagClearOverrun, clearOverrun
-   data     -1, Modbus.unsupported
+   data     -1, Modbus.illegalFunction
 
 
 
@@ -343,20 +344,6 @@ Diag.noResponse:
 
 
 ;; ----------------------------------------------
-;;  FSR0 begin()
-;;
-;;  Initializes the transmission frame in preparation for a diagnostic message
-;;  with function and subfunction codes.
-;;
-begin:
-   call     Frame.begin
-   movff    Modbus.kRxSubFunction, POSTINC0
-   movff    Modbus.kRxSubFunction + 1, POSTINC0
-   return
-
-
-
-;; ----------------------------------------------
 ;;
 ;;
 clear:
@@ -370,10 +357,7 @@ clear:
 ;;  Clears the overrun counter.
 ;;
 clearOverrun:
-   call     Frame.beginEcho
-   clrf     NumOverruns
-   clrf     NumOverruns + 1
-   goto     Frame.end
+   return
 
 
 
@@ -384,7 +368,7 @@ clearOverrun:
 ;;  Device Busy exception response.
 ;;
 getBusyCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumSlaveBusy + 1, POSTINC0
    movff    NumSlaveBusy, POSTINC0
    goto     Frame.end   
@@ -397,7 +381,7 @@ getBusyCount:
 ;;  Returns the number of message checksum errors encountered by this device.
 ;;
 getErrorCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumCommErrs + 1, POSTINC0
    movff    NumCommErrs, POSTINC0
    goto     Frame.end   
@@ -410,7 +394,7 @@ getErrorCount:
 ;;  Returns the number of exception responses returned by this device.
 ;;
 getExceptCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumExceptErrs + 1, POSTINC0
    movff    NumExceptErrs, POSTINC0
    goto     Frame.end   
@@ -424,7 +408,7 @@ getExceptCount:
 ;;  to it or not (including broadcast messages).
 ;;
 getMsgCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumMsgs + 1, POSTINC0
    movff    NumMsgs, POSTINC0
    goto     Frame.end   
@@ -438,7 +422,7 @@ getMsgCount:
 ;;  negative acknowledgement.
 ;;
 getNAKCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumSlaveNAKs + 1, POSTINC0
    movff    NumSlaveNAKs, POSTINC0
    goto     Frame.end   
@@ -452,7 +436,7 @@ getNAKCount:
 ;;  includes all messages received in listen-only mode.
 ;;
 getNoRespCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumNoResponse + 1, POSTINC0
    movff    NumNoResponse, POSTINC0
    goto     Frame.end   
@@ -467,7 +451,7 @@ getNoRespCount:
 ;;  processed.
 ;;
 getOverrunCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumOverruns + 1, POSTINC0
    movff    NumOverruns, POSTINC0
    goto     Frame.end   
@@ -482,7 +466,7 @@ getOverrunCount:
 ;;  its use.  That implies it may be application-specific.
 ;;
 getRegister:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    Register + 1, POSTINC0
    movff    Register, POSTINC0
    goto     Frame.end   
@@ -496,7 +480,7 @@ getRegister:
 ;;  to it specifically or the broadcast address.
 ;;
 getSlaveMsgCount:
-   rcall    begin
+   call     Frame.beginWithSub
    movff    NumSlaveMsgs + 1, POSTINC0
    movff    NumSlaveMsgs, POSTINC0
    goto     Frame.end   
@@ -512,9 +496,9 @@ getSlaveMsgCount:
 ;;
 logDetails:
    ; Calculate the current status.
-   movlw    0x00                    ; assume we're idle (0x0000)
+   movlw    0x00                    ; assume we're idle (status = 0x0000)
    btfsc    Diag.Options, Modbus.kDiag_Busy ; are we actually busy?
-     movlw  0xff                    ; yes, return 0xffff
+     movlw  0xff                    ; yes, then status = 0xffff
 
    movwf    POSTINC0                ; add the status to the frame
    movwf    POSTINC0
@@ -558,7 +542,7 @@ returnQuery:
 setDelim:
    ; Check to make sure we're in ASCII mode.
    btfsc    TXSTA, TX9              ; USART in 7-bit mode?
-     goto Modbus.unsupported        ; no, so this method isn't supported
+     goto Modbus.illegalFunction    ; no, so this method isn't supported
 
    ; Go ahead and change the delimiter character.
    call     Frame.beginEcho

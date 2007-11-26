@@ -25,6 +25,7 @@
    ; Public Methods
    global   Frame.begin
    global   Frame.beginEcho
+   global   Frame.beginWithSub
    global   Frame.end
    global   Frame.endWithError
    global   Frame.isValid
@@ -109,6 +110,20 @@ echoNext:
    ; Copy the next byte, advancing both pointers.
    movff    POSTINC1, POSTINC0
    bra      echoLoop
+
+
+
+;; ----------------------------------------------
+;;  FSR0 Frame.beginWithSub()
+;;
+;;  Initializes the transmission frame in preparation for a response which in-
+;;  cludes both function and subfunction codes.
+;;  
+Frame.beginWithSub:
+   rcall    Frame.begin
+   movff    Modbus.kRxSubFunction, POSTINC0
+   movff    Modbus.kRxSubFunction + 1, POSTINC0
+   return
 
 
 
