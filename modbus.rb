@@ -73,8 +73,8 @@ class Modbus
     end
 
     def gets
-      @adu = "\001\002\003\004\005\006\007\010\011\012" if @adu.nil?
-      @adu
+      $adu = "\001\002\003\004\005\006\007\010\011\012\145\143" if $adu.nil?
+      $adu
     end
 
     def puts( adu )
@@ -164,13 +164,11 @@ class Modbus
     end
 
     @sp.puts( adu ) if @sp
-    puts( "Tx: \"#{adu}\"" )
   end
 
   def rx
     adu = @sp.gets if @sp
-    puts( "Rx: \"#{adu}\"" )
-
+ 
     if is_rtu?
       slave = adu[ 0 ]
       pdu = adu[ 1..-3 ]
@@ -185,7 +183,7 @@ class Modbus
    
       sum = lrc( adu[ 1..-5 ] )
       if sum != adu[ -4..-3 ].hex
-        puts( "LRC incorrect! (Calculated 0x%02x)" % sum )
+        puts( "LRC incorrect! (Calculated 0x%02x, found 0x%02x)" % [sum, adu[ -4..-3 ].hex] )
       end
 
       adu = adu[ 3..-5 ]
@@ -399,8 +397,41 @@ class Modbus
     puts "Not Yet Implemented"
   end
 
-  def encapGetDeviceId( slave )
-    puts "Not Yet Implemented"
+  def encapGetDeviceId( slave, idCode, objectId, array = nil )
+    $adu = ":012b0e0101ff02030016436f6d70616e79206964656e74696669636174696f6e011c50726f6475637420636f64652058585858585858585858585858585805\015\012"
+    $adu = ":012b0e0101000003020556322e31319b\015\012" if !array.nil?
+
+    tx( slave, 43.chr + 14.chr + idCode.chr + objectId.chr )
+    slave, pdu = rx()
+ 
+    unless is_error?( pdu )
+      conformity = pdu[ 3 ]
+      moreFollows = (0 != pdu[ 4 ])
+      nextObjectId = pdu[ 5 ]
+      objectCount = pdu[ 6 ]
+
+      continuation = !array.nil?
+      array = [] if array.nil?
+      list = pdu[ 7..-1 ]
+
+      while 0 < list.length do
+        length = list[ 1 ]
+        array << [ list[ 0 ], list[ 2, length ] ]
+        list = list[ 2+length..-1 ]
+      end
+ 
+      encapGetDeviceId( slave, idCode, nextObjectId, array ) if moreFollows
+ 
+      if !continuation
+        puts "Slave #{slave} [encapGetDeviceId]"
+        puts "  conformity  : #{conformity}"
+        puts "  object count: #{array.length}"
+
+        array.each {|o| puts "  Object #{o[ 0 ]}: #{o[ 1 ]}" }
+      end
+
+      array
+    end
   end
 
   def getEventCount( slave )
