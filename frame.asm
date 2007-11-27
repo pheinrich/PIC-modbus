@@ -147,7 +147,7 @@ Frame.end:
 ;;  on the specified exception code, then terminates the frame.
 ;;
 Frame.endWithError:
-   lfsr     FSR0, Modbus.kTxErrorCode
+   lfsr     FSR0, Modbus.kTxFunction
 
    ; Turn this into an exception PDU.
    bsf      POSTINC0, 7             ; set the function code's high bit

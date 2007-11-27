@@ -141,9 +141,9 @@ Modbus.kASCIIBufLen           equ   0x201
 Modbus.kRxSlave               equ   Modbus.kRxBuffer
 Modbus.kRxFunction            equ   Modbus.kRxBuffer + 1
 Modbus.kRxSubFunction         equ   Modbus.kRxBuffer + 2
+Modbus.kRxReadDeviceIdCode    equ   Modbus.kRxBuffer + 3
+Modbus.kRxObjectId            equ   Modbus.kRxBuffer + 4
 Modbus.kRxDelimiter           equ   Modbus.kRxBuffer + 4
-Modbus.kRxReadDeviceIdCode    equ   Modbus.kRxBuffer + 4
-Modbus.kRxObjectId            equ   Modbus.kRxBuffer + 5
 
 Modbus.kTxSlave               equ   Modbus.kTxBuffer
 Modbus.kTxFunction            equ   Modbus.kTxBuffer + 1
@@ -152,3 +152,6 @@ Modbus.kTxSubFunction         equ   Modbus.kTxBuffer + 2
 Modbus.kTxStatus              equ   Modbus.kTxBuffer + 2
 Modbus.kTxByteCount           equ   Modbus.kTxBuffer + 2
 Modbus.kTxEventCount          equ   Modbus.kTxBuffer + 4
+Modbus.kTxMoreFollows         equ   Modbus.kTxBuffer + 5
+Modbus.kTxNextObjectId        equ   Modbus.kTxBuffer + 6
+Modbus.kTxObjectCount         equ   Modbus.kTxBuffer + 7
