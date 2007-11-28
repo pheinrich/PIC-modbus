@@ -424,7 +424,7 @@ class Modbus
  
       if !continuation
         puts "Slave #{slave} [encapGetDeviceId]"
-        puts "  conformity  : #{conformity}"
+        puts "  conformity  : 0x%02x" % conformity
         puts "  object count: #{array.length}"
 
         array.each {|o| puts "  Object #{o[ 0 ]}: #{o[ 1 ]}" }
