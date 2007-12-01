@@ -36,6 +36,10 @@ class Integer
   def to_word
     return (self >> 8).chr + (0xff & self).chr
   end
+
+  def to_long
+    return (self >> 16).to_word + (0xffff & self).to_word
+  end
 end
 
 
