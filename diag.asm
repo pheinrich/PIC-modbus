@@ -20,6 +20,7 @@
    ; Global Variables
    global   Diag.ExceptStatus
    global   Diag.Options
+   global   Diag.Register
 
    ; Public Methods
    global   Diag.diagnostics
@@ -56,6 +57,7 @@ Diag.Options            res   1
                         ; -1------  busy
                         ; --1-----  don't count event
                         ; ---XXXXX  reserved
+Diag.Register           res   2
 
 LogHead                 res   1     ; pointer to next write position
 LogTail                 res   1     ; pointer to next read position
@@ -69,7 +71,6 @@ NumOverruns             res   2
 NumSlaveBusy            res   2
 NumSlaveMsgs            res   2
 NumSlaveNAKs            res   2
-Register                res   2
 
 
 
@@ -199,7 +200,7 @@ chkLoop:
 Diag.init:
    ; Point to our block of local variables, with total byte length in W.
    lfsr     FSR0, Diag.ExceptStatus
-   movlw    Register - Diag.ExceptStatus + 2
+   movlw    NumSlaveNAKs - Diag.ExceptStatus + 2
 
    ; Clear the block.
    clrf     POSTINC0
@@ -467,8 +468,8 @@ getOverrunCount:
 ;;
 getRegister:
    call     Frame.beginWithSub
-   movff    Register + 1, POSTINC0
-   movff    Register, POSTINC0
+   movff    Diag.Register + 1, POSTINC0
+   movff    Diag.Register, POSTINC0
    goto     Frame.end   
 
 
