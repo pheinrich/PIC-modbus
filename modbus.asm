@@ -20,7 +20,6 @@
    ; Global Variables
    global   Modbus.Address
    global   Modbus.Event
-   global   Modbus.NoChecksum
    global   Modbus.State
 
    ; Public Methods
@@ -61,7 +60,6 @@
 
 Modbus.Address          res   1     ; uniquely identifies this device on the bus
 Modbus.Event            res   1     ; kRxEvt_CommErr, kRxEvt_Broadcast, kTxEvt_Abort, etc.
-Modbus.NoChecksum       res   1     ; 0 = false (default), 255 = true
 Modbus.State            res   1     ; current state of the state machine
 
 

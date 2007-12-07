@@ -36,7 +36,6 @@
    ; Dependencies
    extern   Modbus.Address
    extern   Modbus.Event
-   extern   Modbus.NoChecksum
 
 
 
@@ -199,10 +198,6 @@ Frame.isValid:
 valChecksum:
    ; This message is addressed to us.
    bsf      Modbus.Event, Modbus.kRxEvt_SlaveMsg
-
-   ; If checksum validation is turned off, we're done.
-   tstfsz   Modbus.NoChecksum
-     retlw  0xff
 
    ; Set a pointer to the last byte in the message buffer.
    CopyWord Frame.Head, FSR0L
