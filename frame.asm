@@ -68,6 +68,7 @@ Frame.begin:
    ; Save a pointer to the beginning of the message.
    lfsr     FSR0, Modbus.kTxBuffer
    rcall    Frame.reset
+   SetBank Modbus.kRxFunction
 
    ; Copy the device id from the original message, as well as the function code.
    movff    Modbus.kRxSlave, POSTINC0
@@ -103,6 +104,7 @@ echoLoop:
    ; We've copied the whole reception buffer, so exit.
    rcall    Frame.reset             ; resets Frame.Head and Frame.Tail from FSR0
    SetWord Modbus.kTxBuffer, Frame.Tail ; correct tail (buffer start) pointer
+   SetBank Modbus.kRxFunction
    return
 
 echoNext:

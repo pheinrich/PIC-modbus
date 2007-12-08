@@ -2,6 +2,54 @@
 
 rand 75 125 ms
 
+// writeRegister 1,1,0x400a
+3a
+30 b1
+30 36
+30 30
+30 30
+b4 30 30 e1
+b8 b4
+8d 0a
+
+rand 75 125 ms
+
+// writeRegister 1,8,0x400a
+3a
+30 b1
+30 36
+30 30
+30 b7
+b4 30 30 e1
+b7 e4
+8d 0a
+
+rand 75 125 ms
+
+// portSetGrayscale 1,0xff00
+3a
+30 b1
+b4 33
+30 30
+30 b1
+66 66 30 30
+b4 e2
+8d 0a
+
+rand 75 125 ms
+
+// writeRegister 1,8,0x400a
+3a
+30 b1
+30 36
+30 30
+30 b7
+b4 30 30 e1
+b7 e4
+8d 0a
+
+rand 75 125 ms
+
 // encapGetDeviceId 1,1,0
 3a
 30 b1
