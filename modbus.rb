@@ -488,7 +488,7 @@ class Modbus
   end
 
   def readCoils( slave, address, count )
-    tx( slave, 1.chr + (address - 1).to_word + count.to_word )
+    tx( slave, 1.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -501,7 +501,7 @@ class Modbus
   end
 
   def readDiscretes( slave, address, count )
-    tx( slave, 2.chr + (address - 1).to_word + count.to_word )
+    tx( slave, 2.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -550,7 +550,7 @@ class Modbus
   end
 
   def readInputs( slave, address, count )
-    tx( slave, 4.chr + (address - 1).to_word + count.to_word )
+    tx( slave, 4.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -560,7 +560,7 @@ class Modbus
   end
 
   def readRegisters( slave, address, count )
-    tx( slave, 3.chr + (address - 1).to_word + count.to_word )
+    tx( slave, 3.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -583,7 +583,7 @@ class Modbus
   end
 
   def writeCoil( slave, address, value )
-    tx( slave, 5.chr + (address - 1).to_word + (0 == value ? 0 : 0xff00).to_word )
+    tx( slave, 5.chr + address.to_word + (0 == value ? 0 : 0xff00).to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -600,7 +600,7 @@ class Modbus
     pdu = ""
     0.step( count, 8 ) { |i| pdu << values[ i...i+8 ].join.reverse.to_i( 2 ).chr }
 
-    tx( slave, 15.chr + (address - 1).to_word + count.to_word + pdu.length.chr + pdu )
+    tx( slave, 15.chr + address.to_word + count.to_word + pdu.length.chr + pdu )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -627,7 +627,7 @@ class Modbus
   end
 
   def writeRegister( slave, address, value )
-    tx( slave, 6.chr + (address - 1).to_word + value.to_word )
+    tx( slave, 6.chr + address.to_word + value.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -642,7 +642,7 @@ class Modbus
   def writeRegisters( slave, address, values )
     length = values.length
 
-    tx( slave, 16.chr + (address - 1).to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
+    tx( slave, 16.chr + address.to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -654,7 +654,7 @@ class Modbus
   end
 
   def writeRegMask( slave, address, andMask, orMask )
-    tx( slave, 22.chr + (address - 1).to_word + andMask.to_word + orMask.to_word )
+    tx( slave, 22.chr + address.to_word + andMask.to_word + orMask.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
