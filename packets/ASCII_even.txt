@@ -2,6 +2,18 @@
 
 rand 75 125 ms
 
+// portGetPhysicalPort 1,20
+3a
+30 b1
+b4 33
+30 30
+30 33
+b1 b4
+b1 30
+8d 0a
+
+rand 75 125 ms
+
 // writeRegister 1,1,0x400a
 3a
 30 b1
