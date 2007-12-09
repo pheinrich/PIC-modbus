@@ -38,7 +38,7 @@ b7 e4
 
 rand 75 125 ms
 
-// portSetGrayscale 1,0xff00
+// portSetGrayscale 1,true
 3a
 30 b1
 b4 33
