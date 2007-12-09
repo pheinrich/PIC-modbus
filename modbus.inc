@@ -143,9 +143,11 @@ Modbus.kRxFunction            equ   Modbus.kRxBuffer + 1
 Modbus.kRxSubFunction         equ   Modbus.kRxBuffer + 2
 Modbus.kRxAddress             equ   Modbus.kRxBuffer + 2
 Modbus.kRxReadDeviceIdCode    equ   Modbus.kRxBuffer + 3
+Modbus.kRxCount               equ   Modbus.kRxBuffer + 4
 Modbus.kRxObjectId            equ   Modbus.kRxBuffer + 4
 Modbus.kRxDelimiter           equ   Modbus.kRxBuffer + 4
 Modbus.kRxValue               equ   Modbus.kRxBuffer + 4
+Modbus.kRxFirstRegister       equ   Modbus.kRxBuffer + 6
 
 Modbus.kTxSlave               equ   Modbus.kTxBuffer
 Modbus.kTxFunction            equ   Modbus.kTxBuffer + 1
