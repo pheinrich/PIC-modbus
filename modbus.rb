@@ -167,11 +167,13 @@ class Modbus
       adu += "%02x\r\n" % lrc( adu[ 1..-1 ] )
     end
 
+	puts "Sending \"#{adu}\""
     @sp.puts( adu ) if @sp
   end
 
   def rx
     adu = @sp.gets if @sp
+    puts "Receiving \"#{adu}\""
  
     if is_rtu?
       slave = adu[ 0 ]
@@ -565,7 +567,7 @@ class Modbus
 
     unless is_error?( pdu )
       puts "Slave #{slave} [readRegisters]"
-      registers = pdu[ 2..-1 ].unpack( "n*" )
+      registers = pdu[ 4..-1 ].unpack( "n*" )
     end
   end
 
