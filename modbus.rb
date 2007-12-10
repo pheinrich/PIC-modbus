@@ -562,12 +562,14 @@ class Modbus
   end
 
   def readRegisters( slave, address, count )
+    $adu = ":010302421013\015\012"
+
     tx( slave, 3.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
       puts "Slave #{slave} [readRegisters]"
-      registers = pdu[ 4..-1 ].unpack( "n*" )
+      registers = pdu[ 2..-1 ].unpack( "n*" )
     end
   end
 
