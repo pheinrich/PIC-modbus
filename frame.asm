@@ -141,11 +141,14 @@ Frame.end:
 
 
 ;; ----------------------------------------------
-;;  void Frame.endWithError( WREG exception, FSR0 nextByte  )
+;;  STATUS<C> Frame.endWithError( WREG exception, FSR0 nextByte  )
 ;;
 ;;  Discards the current contents of the frame and reinitializes it to be an
 ;;  exception response.  This method also sets the correct event flags based
 ;;  on the specified exception code, then terminates the frame.
+;;
+;;  This method always returns with STATUS<C> clear to indicate the frame now
+;;  contains an exception response.
 ;;
 Frame.endWithError:
    lfsr     FSR0, Modbus.kTxFunction
@@ -173,8 +176,9 @@ Frame.endWithError:
    bsf      Modbus.Event, Modbus.kTxEvt_ReadEx
 
 errorDone:
-   ; Advance the pointer one byte.
-   movf     POSTINC0, W
+   ; Tidy up on our way out.
+   movf     POSTINC0, W             ; advance the pointer one byte
+   bcf      STATUS, C               ; announce the exception response
    bra      Frame.end
 
 
