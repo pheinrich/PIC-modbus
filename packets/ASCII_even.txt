@@ -2,6 +2,17 @@
 
 rand 75 125 ms
 
+// readCoils 1,0,10
+3a
+30 b1
+30 b1
+30 30 30 30
+30 30 30 e1
+b8 e4
+8d 0a
+
+rand 75 125 ms
+
 // readRegisters 1,0,1
 3a
 30 b1
