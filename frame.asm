@@ -2,7 +2,7 @@
 ;;
 ;;  Modbus
 ;;
-;;  Copyright © 2006,7  Peter Heinrich
+;;  Copyright © 2006-8  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -34,6 +34,7 @@
    global   Frame.txByte
 
    ; Dependencies
+   extern   Diag.Options
    extern   Modbus.Address
    extern   Modbus.Event
 
@@ -192,12 +193,12 @@ errorDone:
 ;;
 Frame.isValid:
    ; Verify the message is addressed to this device.
-   bsf      Modbus.Event, Modbus.kRxEvt_Broadcast ; assume broadcast message
+   bsf      Diag.Options, Modbus.kDiag_Broadcast ; assume broadcast message
    SetBank Modbus.kRxBuffer
    movf     Modbus.kRxBuffer, W     ; is this a broadcast message (0 == address)?
    bz       valChecksum             ; yes, validate the checksum
 
-   bcf      Modbus.Event, Modbus.kRxEvt_Broadcast ; no, clear our assumption
+   bcf      Diag.Options, Modbus.kDiag_Broadcast ; no, clear our assumption
    cpfseq   Modbus.Address          ; is it addressed to this specific device?
      retlw  0x00                    ; no, discard frame
 

@@ -2,7 +2,7 @@
 ;;
 ;;  Modbus
 ;;
-;;  Copyright © 2006,7  Peter Heinrich
+;;  Copyright © 2006-8  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -56,7 +56,8 @@ Diag.Options            res   1
                         ; 1-------  listen-only mode
                         ; -1------  busy
                         ; --1-----  don't count event
-                        ; ---XXXXX  reserved
+                        ; ---1----  last message was broadcast
+                        ; ----XXXX  reserved
 Diag.Register           res   2
 
 LogHead                 res   1     ; pointer to next write position
@@ -273,10 +274,12 @@ rxOverrun:
    IncrementWord NumOverruns
 
 rxWrite:
-   ; Set the event type and copy the state of the listen-only mode indicator bit.
+   ; Set the event type and copy the state of some indicator bits.
    bsf      Modbus.Event, 7
    btfsc    Diag.Options, Modbus.kDiag_ListenOnly
      bsf    Modbus.Event, Modbus.kRxEvt_ListenOnly
+   btfsc    Diag.Options, Modbus.kDiag_Broadcast
+     bsf    Modbus.Event, Modbus.kRxEvt_Broadcast
 
    ; Store the event byte in the log.
    bra      storeLogByte

@@ -2,7 +2,7 @@
 ;;
 ;;  Modbus
 ;;
-;;  Copyright © 2006,7  Peter Heinrich
+;;  Copyright © 2006-8  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -119,6 +119,7 @@ Modbus.kCmdEvt_Restart        equ   0x00
 Modbus.kDiag_ListenOnly       equ   7
 Modbus.kDiag_Busy             equ   6
 Modbus.kDiag_DontCountEvent   equ   5
+Modbus.kDiag_Broadcast        equ   4
 
 ; Base pointers to special buffers.  ASCII mode requires special buffer
 ; handling, since we don't have enough memory for two independent buffers.
