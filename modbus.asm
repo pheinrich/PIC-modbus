@@ -2,7 +2,7 @@
 ;;
 ;;  Modbus
 ;;
-;;  Copyright © 2006-8  Peter Heinrich
+;;  Copyright © 2006-8, 8  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -201,7 +201,7 @@ Modbus.replyMsg:
 
    ; If the last message received was a broadcast message, or this device is in
    ; listen-only mode, maintain radio silence.
-   movlw    Modbus.kDiag_Broadcast | Modbus.kDiag_ListenOnly
+   movlw    (1 << Modbus.kDiag_Broadcast) | (1 << Modbus.kDiag_ListenOnly)
    andwf    Diag.Options, W         ; should we reply?
    bz       reply                   ; yes, reply normally
 
