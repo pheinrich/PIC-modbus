@@ -32,6 +32,7 @@
    extern   Frame.reset
    extern   Frame.rxByte
    extern   Frame.txByte
+   extern   Modbus.idle
    extern   Modbus.Event
    extern   Modbus.State
    extern   USART.HookRx
@@ -328,10 +329,8 @@ timeoutDone:
 
 timeoutIdle:
    ; Become idle, since we know a full frame timeout period has elapsed.
-   movlw    Modbus.kState_Idle      ; be ready to receive the next message
-   movwf    Modbus.State
+   call     Modbus.idle             ; be ready to receive the next message
    bcf      PIE1, TMR1IE            ; disable timer1 interrupts
-
    return
 
 

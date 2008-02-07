@@ -25,6 +25,7 @@
    ; Public Methods
    global   Modbus.builtin
    global   Modbus.dispatchMsg
+   global   Modbus.idle
    global   Modbus.illegalAddress
    global   Modbus.illegalData
    global   Modbus.illegalFunction
@@ -96,6 +97,19 @@ Modbus.dispatchMsg:
 
 
 ;; ----------------------------------------------
+;;  void Modbus.idle()
+;;
+;;  Turns off the tranceiver bus master before entering the idle state.
+;;
+Modbus.idle:
+   movlw    Modbus.kState_Idle
+   movwf    Modbus.State
+   bcf      PORTA, RA3              ; turn off tranceiver bus master
+   return
+
+
+
+;; ----------------------------------------------
 ;;  void Modbus.illegalAddress()
 ;;
 ;;  Creates an exception response with an error code of 2, which indicates an
@@ -143,6 +157,9 @@ Modbus.illegalFunction:
 ;;  requested.
 ;;
 Modbus.init:
+   ; Initialize a pin to control tranceiver bus master.
+   bcf      PORTA, RA3              ; RA3/AN3/VREF+ will be an output
+
    ; The operating mode determines which state machine will be active.
    movf     Util.Frame, F           ; are we in ASCII (7-bit) mode?
    bz       initRTU                 ; no, initialize RTU mode
@@ -206,8 +223,7 @@ Modbus.replyMsg:
    bz       reply                   ; yes, reply normally
 
    ; Monitoring messages only, so we're done with this one.
-   movlw    Modbus.kState_Idle
-   movwf    Modbus.State
+   rcall    Modbus.idle
    goto     Diag.noResponse
 
 reply:
@@ -216,6 +232,7 @@ reply:
    ; the current byte is transmitted.
    movlw    Modbus.kState_EmitStart ; prepare to transmit the message
    movwf    Modbus.State
+   bsf      PORTA, RA3              ; enable tranceiver bus master
    bsf      PIE1, TXIE              ; enable the interrupt
    return
 

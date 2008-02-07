@@ -36,6 +36,7 @@
    extern   Frame.rxByte
    extern   Frame.Tail
    extern   Frame.txByte
+   extern   Modbus.idle
    extern   Modbus.Event
    extern   Modbus.State
    extern   USART.HookRx
@@ -111,8 +112,7 @@ ASCII.init:
    movwf    ASCII.Delimiter
 
    ; Start out Idle.
-   movlw    Modbus.kState_Idle
-   movwf    Modbus.State
+   call     Modbus.idle
 
    ; Hook the serial port.
    SetWord ASCII.isrRx, USART.HookRx ; set the reception callback
@@ -231,8 +231,7 @@ rxWaiting:
 rxDone:
    ; There was a communication error (parity, overrun, checksum) or the message
    ; simply wasn't addressed to us.
-   movlw    Modbus.kState_Idle      ; be ready to receive the next message
-   movwf    Modbus.State
+   call     Modbus.idle             ; be ready to receive the next message
    bsf      Modbus.Event, Modbus.kRxEvt_NoResponse
    goto     Diag.logRxEvt           ; log the receive event in the event log
 
@@ -263,8 +262,7 @@ timeoutUpdate:
    decfsz   ASCII.Timeouts, F       ; has 1 second expired?
      return                         ; no, keep waiting
 
-   movlw    Modbus.kState_Idle
-   movwf    Modbus.State
+   call     Modbus.idle
    bcf      PIE1, TMR1IE            ; disable redundant timer1 interrupts
    return
 
@@ -345,6 +343,7 @@ txEmitDone:
    ; it's checksum, the end-of-frame marker, and ASCII delimiter.  We're idle!
    movlw    Modbus.kState_Idle
    movwf    Modbus.State
+;   call     Modbus.idle
    bcf      PIE1, TXIE
    goto     Diag.logTxEvt
 
