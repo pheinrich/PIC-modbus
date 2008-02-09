@@ -93,15 +93,19 @@ class Modbus
           end
         end
 
-        print "%02x " % b
+        print "%02x " % b if $debug
       end
-      print "\n"
+      print "\n" if $debug
     end
   end
 
-  def initialize( port = -1, rtu = true, baud = DEF_BAUD, stopbits = DEF_STOPBITS, parity = DEF_PARITY )
+  def initialize( port = -1, rtu = true,
+  				  baud = DEF_BAUD, stopbits = DEF_STOPBITS, parity = DEF_PARITY,
+  				  verbose = false, debug = false )
     $databits = rtu ? 8 : 7
     $parity = parity
+    $verbose = verbose
+    $debug = debug
 
     if -1 == port
       @sp = MockPort.new
@@ -126,13 +130,21 @@ class Modbus
     8 == $databits
   end
 
+  def setVerbose( verbose )
+    $verbose = verbose
+  end
+
+  def setDebug( debug )
+    $debug = debug
+  end
+
   def setParity( parity )
     $parity = parity
   end
 
   def is_error?( pdu )
     if 0 != (0x80 & pdu[ 0 ])
-       puts "Error: #{@@errors[ pdu[ 1 ] ]}"
+       puts "Error: #{@@errors[ pdu[ 1 ] ]}" if $verbose
        return true
     end
     return false
@@ -167,13 +179,13 @@ class Modbus
       adu += "%02x\r\n" % lrc( adu[ 1..-1 ] )
     end
 
-	puts "Sending \"#{adu}\""
+	puts "Sending \"#{adu}\"" if $debug
     @sp.puts( adu ) if @sp
   end
 
   def rx
     adu = @sp.gets if @sp
-    puts "Receiving \"#{adu}\""
+    puts "Receiving \"#{adu}\"" if $debug
  
     if is_rtu?
       slave = adu[ 0 ]
@@ -181,10 +193,10 @@ class Modbus
 
       sum = crc( adu[ 0..-3 ] )
       if sum != adu[ -2 ] + (adu[ -1 ] << 8)
-        puts( "CRC incorrect! (Calculated 0x%04x)" % sum )
+        puts( "CRC incorrect! (Calculated 0x%04x, found 0x%04x)" % [sum, adu[ -2 ] + (adu[ -1 ] << 8)] )
       end
     else
-      slave = adu[1..2].hex
+      slave = adu[ 1..2 ].hex
       pdu = ""
    
       sum = lrc( adu[ 1..-5 ] )
@@ -232,7 +244,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [diagClear]"
+      puts "Slave #{slave} [diagClear]" if $verbose
     end
   end
 
@@ -241,7 +253,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [diagClearOverrun]"
+      puts "Slave #{slave} [diagClearOverrun]" if $verbose
     end
   end
 
@@ -252,8 +264,7 @@ class Modbus
     unless is_error?( pdu )
       busy = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetBusyCount]:"
-      puts "  busy: #{busy}"
+      puts "Slave #{slave} [diagGetBusyCount]:\n  busy: #{busy}" if $verbose
       busy
     end
   end
@@ -265,8 +276,7 @@ class Modbus
     unless is_error?( pdu )
       errors = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetErrorCount]:"
-      puts "  bus errors: #{errors}"
+      puts "Slave #{slave} [diagGetErrorCount]:\n  bus errors: #{errors}" if $verbose
       errors
     end
   end
@@ -278,8 +288,7 @@ class Modbus
     unless is_error?( pdu )
       errors = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetExceptCount]"
-      puts "  exceptions: #{errors}"
+      puts "Slave #{slave} [diagGetExceptCount]\n  exceptions: #{errors}" if $verbose
       errors
     end
   end
@@ -291,8 +300,7 @@ class Modbus
     unless is_error?( pdu )
       messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetMsgCount]"
-      puts "  messages: #{messages}"
+      puts "Slave #{slave} [diagGetMsgCount]\n  messages: #{messages}" if $verbose
       messages
     end
   end
@@ -304,8 +312,7 @@ class Modbus
     unless is_error?( pdu )
       naks = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetNAKCount]"
-      puts "  NAKs: #{naks}"
+      puts "Slave #{slave} [diagGetNAKCount]\n  NAKs: #{naks}" if $verbose
       naks
     end
   end
@@ -317,8 +324,7 @@ class Modbus
     unless is_error?( pdu )
       noResp = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetNoRespCount]"
-      puts "  no response: #{noResp}"
+      puts "Slave #{slave} [diagGetNoRespCount]\n  no response: #{noResp}" if $verbose
       noResp
     end
   end
@@ -330,8 +336,7 @@ class Modbus
     unless is_error?( pdu )
       overruns = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetOverrunCount]"
-      puts "  overruns: #{overruns}"
+      puts "Slave #{slave} [diagGetOverrunCount]\n  overruns: #{overruns}" if $verbose
       overruns
     end
   end
@@ -343,8 +348,8 @@ class Modbus
     unless is_error?( pdu )
       register = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetRegister]"
-      puts "  register: #{register}"
+      puts "Slave #{slave} [diagGetRegister]\n  register: #{register}" if $verbose
+	  register
     end
   end
 
@@ -355,8 +360,8 @@ class Modbus
     unless is_error?( pdu )
       messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetSlaveMsgCount]"
-      puts "  messages: #{messages}"
+      puts "Slave #{slave} [diagGetSlaveMsgCount]\n  messages: #{messages}" if $verbose
+	  messages
     end
   end
 
@@ -365,8 +370,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [diagRestartComm]:"
-      puts "  log: #{clearLog ? "cleared" : "preserved"}"
+      puts "Slave #{slave} [diagRestartComm]:\n  log: #{clearLog ? "cleared" : "preserved"}" if $verbose
     end
   end
 
@@ -375,7 +379,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [diagReturnQuery]"
+      puts "Slave #{slave} [diagReturnQuery]" if $verbose
       pdu[ 3..-1 ].unpack( "c*" )
     end
   end
@@ -385,9 +389,8 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [diagSetDelim]:"
-      puts "  delimiter: \"" + delim + "\""
-    end
+      puts "Slave #{slave} [diagSetDelim]:\n  delimiter: \"" + delim + "\"" if $verbose
+	end
   end
 
   def diagSetListenOnly( slave )
@@ -395,7 +398,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [diagSetListenOnly]"
+      puts "Slave #{slave} [diagSetListenOnly]" if $verbose
     end
   end
 
@@ -404,9 +407,6 @@ class Modbus
   end
 
   def encapGetDeviceId( slave, idCode, objectId, array = nil )
-    $adu = ":012b0e0101ff02030016436f6d70616e79206964656e74696669636174696f6e011c50726f6475637420636f64652058585858585858585858585858585805\015\012"
-    $adu = ":012b0e0101000003020556322e31319b\015\012" if !array.nil?
-
     tx( slave, 43.chr + 14.chr + idCode.chr + objectId.chr )
     slave, pdu = rx()
  
@@ -428,7 +428,7 @@ class Modbus
  
       encapGetDeviceId( slave, idCode, nextObjectId, array ) if moreFollows
  
-      if !continuation
+      if !continuation && $verbose
         puts "Slave #{slave} [encapGetDeviceId]"
         puts "  conformity  : 0x%02x" % conformity
         puts "  object count: #{array.length}"
@@ -447,9 +447,12 @@ class Modbus
     unless is_error?( pdu )
       status, events = pdu[1, 4].unpack( "n2" )
 
-      puts "Slave #{slave} [getEventCount]:"
-      puts "  status: #{0 == status ? "READY" : "BUSY"}"
-      puts "  events:  #{events}"
+      if $verbose
+        puts "Slave #{slave} [getEventCount]:"
+        puts "  status: #{0 == status ? "READY" : "BUSY"}"
+        puts "  events:  #{events}"
+	  end
+	  [status, events]
     end
   end
 
@@ -461,10 +464,12 @@ class Modbus
       status, events, messages = pdu[2, 6].unpack( "n3" )
       log = pdu[8..-1].unpack( "c*" )
 
-      puts "Slave #{slave} [getEventLog]:"
-      puts "  status:   #{0 == status ? "READY" : "BUSY"}"
-      puts "  events:   #{events}"
-      puts "  messages: #{messages}"
+      if $verbose
+        puts "Slave #{slave} [getEventLog]:"
+        puts "  status:   #{0 == status ? "READY" : "BUSY"}"
+        puts "  events:   #{events}"
+        puts "  messages: #{messages}"
+	  end
       log
     end
   end
@@ -474,8 +479,11 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [getExceptions]:"
-      8.times { |i| puts "  exception ##{i}: #{0 == (1 << i) & pdu[ 1 ] ? "NO" : "YES"}" }
+      if $verbose
+        puts "Slave #{slave} [getExceptions]:"
+        8.times { |i| puts "  exception ##{i}: #{0 == (1 << i) & pdu[ 1 ] ? "NO" : "YES"}" }
+	  end
+	  # FIX return array of exception values
     end
   end
 
@@ -484,7 +492,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [getSlaveId]"
+      puts "Slave #{slave} [getSlaveId]" if $verbose
       pdu[ 2..-1 ]
     end
   end
@@ -497,7 +505,7 @@ class Modbus
       coils = []
       pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| coils << b - ?0 }
 
-      puts "Slave #{slave} [readCoils]"
+      puts "Slave #{slave} [readCoils]" if $verbose
       coils[ 0, count ]
     end
   end
@@ -510,7 +518,7 @@ class Modbus
       discretes = []
       pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| discretes << b - ?0 }
 
-      puts "Slave #{slave} [readDiscretes]"
+      puts "Slave #{slave} [readDiscretes]" if $verbose
       discretes[ 0, count ]
     end
   end
@@ -522,7 +530,7 @@ class Modbus
     unless is_error?( pdu )
       queue = pdu[ 5..-1 ].unpack( "n*" )
 
-      puts "Slave #{slave} [readFIFOQueue]"
+      puts "Slave #{slave} [readFIFOQueue]" if $verbose
       queue
     end
   end
@@ -544,9 +552,11 @@ class Modbus
         offset += pdu[ offset ] + 1
       end
  
-      puts "Slave #{slave} [readFileRecord]:"
-      puts "  records: #{records.length}"
-      puts "  total:   #{pdu[ 1 ]} bytes"
+      if $verbose
+        puts "Slave #{slave} [readFileRecord]:"
+        puts "  records: #{records.length}"
+        puts "  total:   #{pdu[ 1 ]} bytes"
+	  end
       records
     end
   end
@@ -556,19 +566,17 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [readInputs]"
+      puts "Slave #{slave} [readInputs]" if $verbose
       inputs = pdu[ 2..-1 ].unpack( "n*" )
     end
   end
 
   def readRegisters( slave, address, count )
-    $adu = ":010302421013\015\012"
-
     tx( slave, 3.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [readRegisters]"
+      puts "Slave #{slave} [readRegisters]" if $verbose
       registers = pdu[ 2..-1 ].unpack( "n*" )
     end
   end
@@ -581,7 +589,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [readWriteRegs]"
+      puts "Slave #{slave} [readWriteRegs]" if $verbose
       inputs = pdu[ 2..-1 ].unpack( "n*" )
     end
   end
@@ -593,8 +601,7 @@ class Modbus
     unless is_error?( pdu )
       value = pdu[ 3, 2 ].unpack( "n" )
  
-      puts "Slave #{slave} [writeCoil]:"
-      puts "  coil #{address}: #{0 == value[ 0 ] ? "RESET" : "SET"}"
+      puts "Slave #{slave} [writeCoil]:\n  coil #{address}: #{0 == value[ 0 ] ? "RESET" : "SET"}" if $verbose
       value
     end
   end
@@ -610,8 +617,8 @@ class Modbus
     unless is_error?( pdu )
       count = pdu[ 3, 2 ].unpack( "n" )
  
-      puts "Slave #{slave} [writeCoils]:"
-      puts "  #{count} coil(s) written"
+      puts "Slave #{slave} [writeCoils]:\n  #{count} coil(s) written" if $verbose
+	  count
     end
   end
 
@@ -624,9 +631,11 @@ class Modbus
     slave, pdu = rx()
  
     unless is_error?( pdu )
-      puts "Slave #{slave} [writeFileRecord]:"
-      puts "  records: #{subreqs.length}"
-      puts "  total:   #{pdu[ 1 ]} bytes"
+      if $verbose
+        puts "Slave #{slave} [writeFileRecord]:"
+        puts "  records: #{subreqs.length}"
+        puts "  total:   #{pdu[ 1 ]} bytes"
+	  end
     end
   end
 
@@ -637,8 +646,7 @@ class Modbus
     unless is_error?( pdu )
       value = pdu[ 3, 2 ].unpack( "n" )
 
-      puts "Slave #{slave} [writeRegister]:"
-      puts "  register #{address}: 0x%04x" % value
+      puts "Slave #{slave} [writeRegister]:\n  register #{address}: 0x%04x" % value if $verbose
       value
     end
   end
@@ -652,8 +660,8 @@ class Modbus
     unless is_error?( pdu )
       count = pdu[ 3, 2 ].unpack( "n" )
  
-      puts "Slave #{slave} [writeRegisters]:"
-      puts "  #{count} register(s) written"
+      puts "Slave #{slave} [writeRegisters]:\n  #{count} register(s) written" if $verbose
+	  count
     end
   end
 
@@ -662,7 +670,7 @@ class Modbus
     slave, pdu = rx()
 
     unless is_error?( pdu )
-      puts "Slave #{slave} [writeRegMask]"
+      puts "Slave #{slave} [writeRegMask]" if $verbose
     end
   end
 end

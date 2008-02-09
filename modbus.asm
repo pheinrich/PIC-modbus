@@ -99,12 +99,23 @@ Modbus.dispatchMsg:
 ;; ----------------------------------------------
 ;;  void Modbus.idle()
 ;;
-;;  Turns off the tranceiver bus master before entering the idle state.
+;;  Turns off the tranceiver bus master before entering the idle state.  This
+;;  method waits for the current byte (if any) to be transmitted completely,
+;;  then disables the tranceiver's transmitter, putting it in a high-impedance
+;;  state.  High-Z mode allows other transmitters to use the bus.
+;;
+;;  The last step is to update the actual value stored in the state machine,
+;;  so it knows it's free to start processing new messages.
 ;;
 Modbus.idle:
+   ; Turn off transceiver bus master.
+   btfss    TXSTA, TRMT             ; is transmit shift register empty?
+     bra    $-2                     ; no, wait for last byte to be transmitted
+   bcf      PORTA, RA3              ; put transmitter in high-Z mode
+
+   ; Update state machine.
    movlw    Modbus.kState_Idle
    movwf    Modbus.State
-   bcf      PORTA, RA3              ; turn off tranceiver bus master
    return
 
 

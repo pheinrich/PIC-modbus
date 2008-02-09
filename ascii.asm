@@ -341,9 +341,7 @@ txEmitDone:
 
    ; Emit Done State: we've successfully transmitted our message reply, including
    ; it's checksum, the end-of-frame marker, and ASCII delimiter.  We're idle!
-   movlw    Modbus.kState_Idle
-   movwf    Modbus.State
-;   call     Modbus.idle
+   call     Modbus.idle
    bcf      PIE1, TXIE
    goto     Diag.logTxEvt
 
