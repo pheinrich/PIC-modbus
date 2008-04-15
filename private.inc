@@ -15,11 +15,11 @@
 
 
 
-   processor 18f242
+   processor 18f252
    radix dec
    list b=3
 
-   #include <p18f242.inc>
+   #include <p18f252.inc>
    #include "../framework/macros.inc"
    #include "../framework/framework.inc"
    #include "modbus.inc"
