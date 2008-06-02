@@ -21,7 +21,7 @@
 
 
 
-require "serialport"
+Kernel::require "serialport"
 
 
 
