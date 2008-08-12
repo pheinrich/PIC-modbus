@@ -2,7 +2,7 @@
 ;;
 ;;  Modbus
 ;;
-;;  Copyright © 2006,7  Peter Heinrich
+;;  Copyright © 2006-8  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
@@ -130,6 +130,8 @@ ASCII.init:
 ;;  byte.
 ;;
 ASCII.isrRx:
+   btg      PORTC, RC2
+
    ; Determine the state of the state machine, since characters received at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Idle
