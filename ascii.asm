@@ -130,8 +130,6 @@ ASCII.init:
 ;;  byte.
 ;;
 ASCII.isrRx:
-   btg      PORTC, RC2
-
    ; Determine the state of the state machine, since characters received at diff-
    ; erent times result in different actions.
    movlw    Modbus.kState_Idle
