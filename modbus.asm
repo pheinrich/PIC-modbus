@@ -111,7 +111,7 @@ Modbus.idle:
    ; Turn off transceiver bus master.
    btfss    TXSTA, TRMT             ; is transmit shift register empty?
      bra    $-2                     ; no, wait for last byte to be transmitted
-   bcf      PORTA, RA3              ; put transmitter in high-Z mode
+   bcf      PORTC, RC0              ; put transmitter in high-Z mode
 
    ; Update state machine.
    movlw    Modbus.kState_Idle
@@ -169,7 +169,7 @@ Modbus.illegalFunction:
 ;;
 Modbus.init:
    ; Initialize a pin to control tranceiver bus master.
-   bcf      PORTA, RA3              ; RA3/AN3/VREF+ will be an output
+   bcf      TRISC, RC0              ; make RC0/T1OSO/T1CKI an output, if not already
 
    ; The operating mode determines which state machine will be active.
    movf     Util.Frame, F           ; are we in ASCII (7-bit) mode?
@@ -243,7 +243,7 @@ reply:
    ; the current byte is transmitted.
    movlw    Modbus.kState_EmitStart ; prepare to transmit the message
    movwf    Modbus.State
-   bsf      PORTA, RA3              ; enable tranceiver bus master
+   bsf      PORTC, RC0              ; enable tranceiver bus master
    bsf      PIE1, TXIE              ; enable the interrupt
    return
 
