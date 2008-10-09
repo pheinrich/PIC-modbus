@@ -2,7 +2,7 @@
 ;;
 ;;  Modbus
 ;;
-;;  Copyright © 2006  Peter Heinrich
+;;  Copyright © 2006-8  Peter Heinrich
 ;;  All Rights Reserved
 ;;
 ;;  $URL$
