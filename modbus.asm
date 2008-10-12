@@ -39,6 +39,7 @@
    extern   Diag.diagnostics
    extern   Diag.getEventCount
    extern   Diag.getEventLog
+   extern   Diag.getExceptions
    extern   Diag.init
    extern   Diag.noResponse
    extern   Diag.Options
@@ -70,6 +71,7 @@ Modbus.State            res   1     ; current state of the state machine
 ;; ---------------------------------------------------------------------------
 
 BuiltinVTbl:
+   data     Modbus.kGetExceptions, Diag.getExceptions
    data     Modbus.kDiagnostics, Diag.diagnostics
    data     Modbus.kGetEventCount, Diag.getEventCount
    data     Modbus.kGetEventLog, Diag.getEventLog

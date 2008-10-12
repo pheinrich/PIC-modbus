@@ -26,6 +26,7 @@
    global   Diag.diagnostics
    global   Diag.getEventCount
    global   Diag.getEventLog
+   global   Diag.getExceptions
    global   Diag.init
    global   Diag.logListenOnly
    global   Diag.logRestart
@@ -188,6 +189,16 @@ chkLoop:
      bra    logLoop                 ; no, loop until done
 
    ; End the frame.
+   goto     Frame.end
+
+
+
+;; ----------------------------------------------
+;;  void Diag.getExceptions()
+;;
+Diag.getExceptions:
+   call     Frame.begin
+   movff    Diag.ExceptStatus, POSTINC0
    goto     Frame.end
 
 
