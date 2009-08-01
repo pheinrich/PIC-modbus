@@ -73,6 +73,14 @@ Modbus.kDevIdExtended_Last    equ   255
 Modbus.kDevIdReserved_First   equ   7
 Modbus.kDevIdReserved_Last    equ   127
 
+; File record constants.
+Modbus.kFile_MaxReadReqSize   equ   245
+Modbus.kFile_MinReadReqSize   equ   7
+Modbus.kFile_MaxWriteReqSize  equ   251
+Modbus.kFile_MinWriteReqSize  equ   9
+Modbus.kFile_ReferenceType    equ   6
+Modbus.kFile_SubReqHeaderSize equ   7
+
 ; Possible exception codes.
 Modbus.kErrorBadFunction      equ   1
 Modbus.kErrorBadAddress       equ   2
@@ -143,7 +151,9 @@ Modbus.kRxSlave               equ   Modbus.kRxBuffer
 Modbus.kRxFunction            equ   Modbus.kRxBuffer + 1
 Modbus.kRxSubFunction         equ   Modbus.kRxBuffer + 2
 Modbus.kRxAddress             equ   Modbus.kRxBuffer + 2
+Modbus.kRxRequestSize         equ   Modbus.kRxBuffer + 2
 Modbus.kRxReadDeviceIdCode    equ   Modbus.kRxBuffer + 3
+Modbus.kRxFirstSubReq         equ   Modbus.kRxBuffer + 3
 Modbus.kRxCount               equ   Modbus.kRxBuffer + 4
 Modbus.kRxObjectId            equ   Modbus.kRxBuffer + 4
 Modbus.kRxDelimiter           equ   Modbus.kRxBuffer + 4
