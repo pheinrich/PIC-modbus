@@ -75,7 +75,7 @@ BuiltinVTbl:
    data     Modbus.kDiagnostics, Diag.diagnostics
    data     Modbus.kGetEventCount, Diag.getEventCount
    data     Modbus.kGetEventLog, Diag.getEventLog
-   data     -1, Modbus.illegalFunction
+   data     0xffff, Modbus.illegalFunction
 
 
 

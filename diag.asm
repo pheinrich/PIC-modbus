@@ -74,6 +74,8 @@ NumSlaveBusy            res   2
 NumSlaveMsgs            res   2
 NumSlaveNAKs            res   2
 
+EOV:
+
 
 
 ;; ---------------------------------------------------------------------------
@@ -102,7 +104,7 @@ DiagnosticsVTbl:
    data     Modbus.kDiagGetBusyCount, getBusyCount
    data     Modbus.kDiagGetOverrunCount, getOverrunCount
    data     Modbus.kDiagClearOverrun, clearOverrun
-   data     -1, Modbus.illegalFunction
+   data     0xffff, Modbus.illegalFunction
 
 
 
@@ -171,7 +173,7 @@ Diag.getEventLog:
    SetBank Modbus.kTxByteCount
    addwf    Modbus.kTxByteCount, F  ; update byte count in frame
    movwf    Util.Save               ; store as counter variable
-   incf     Util.Save
+   incf     Util.Save, F
 
    ; Add the actual event log entries to the frame.
    lfsr     FSR1, Modbus.kLogBuffer ; set base pointer
@@ -179,13 +181,13 @@ Diag.getEventLog:
    bra      chkLoop                 ; skip to loop termination check
 
 logLoop:
-   decf     WREG                    ; predecrement the index
+   decf     WREG, F                 ; predecrement the index
    btfsc    STATUS, N               ; has index moved past start of log buffer?
      addlw  Modbus.kLogBufLen       ; yes, reposition to end
    movff    PLUSW1, POSTINC0        ; copy from the log to the frame
 
 chkLoop:
-   decfsz   Util.Save               ; have we transferred all the entries?
+   decfsz   Util.Save, F            ; have we transferred all the entries?
      bra    logLoop                 ; no, loop until done
 
    ; End the frame.
@@ -212,7 +214,7 @@ Diag.getExceptions:
 Diag.init:
    ; Point to our block of local variables, with total byte length in W.
    lfsr     FSR0, Diag.ExceptStatus
-   movlw    NumSlaveNAKs - Diag.ExceptStatus + 2
+   movlw    EOV - Diag.ExceptStatus
 
    ; Clear the block.
    clrf     POSTINC0

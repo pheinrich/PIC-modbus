@@ -114,19 +114,19 @@ TimeoutDelta            res   2     ; difference between timeout values
 ;;
 DelayTable:
    ; Character/frame timers at 9600 baud.
-   data     -((3 * kFrequency) / (9600 << 3))   ; 156.25탎
-   data     -((7 * kFrequency) / (9600 << 3))   ; 364.58탎
-   data     -((4 * kFrequency) / (9600 << 3))   ; 354.58 - 156.25 ~= 208.33탎
+   data     0xffff & -((3 * kFrequency) / (9600 << 3))   ; 156.25탎
+   data     0xffff & -((7 * kFrequency) / (9600 << 3))   ; 364.58탎
+   data     0xffff & -((4 * kFrequency) / (9600 << 3))   ; 354.58 - 156.25 ~= 208.33탎
 
    ; Character/frame timers at 19200 baud.
-   data     -((3 * kFrequency) / (19200 << 3))  ; 78.125탎
-   data     -((7 * kFrequency) / (19200 << 3))  ; 182.29탎
-   data     -((4 * kFrequency) / (19200 << 3))  ; 182.29 - 78.125 ~= 104.166탎
+   data     0xffff & -((3 * kFrequency) / (19200 << 3))  ; 78.125탎
+   data     0xffff & -((7 * kFrequency) / (19200 << 3))  ; 182.29탎
+   data     0xffff & -((4 * kFrequency) / (19200 << 3))  ; 182.29 - 78.125 ~= 104.166탎
 
    ; Character/frame timers for all baud rates greater than 19200.
-   data     -((kFrequency / 4000000) *  750)    ;  750탎
-   data     -((kFrequency / 4000000) * 1750)    ; 1750탎
-   data     -((kFrequency / 4000000) * 1000)    ; 1000탎
+   data     0xffff & -((kFrequency / 4000000) *  750)    ;  750탎
+   data     0xffff & -((kFrequency / 4000000) * 1750)    ; 1750탎
+   data     0xffff & -((kFrequency / 4000000) * 1000)    ; 1000탎
 
 
 
@@ -355,7 +355,7 @@ RTU.isrTx:
    CopyWord FSR0L, Frame.Head
 
    ; Switch states so we can start sending message bytes.
-   incf     Modbus.State            ; state = Modbus.kState_Emission
+   incf     Modbus.State, F         ; state = Modbus.kState_Emission
 
 txStash:
    ; Get the next byte from the message buffer.  If none is available, the carry
