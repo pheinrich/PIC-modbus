@@ -21,7 +21,8 @@
 
 
 
-Kernel::require "serialport"
+require 'rubygems'
+require 'serialport'
 
 
 
