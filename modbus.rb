@@ -3,7 +3,7 @@
 ##
 ##  Modbus
 ##
-##  Copyright © 2006-8  Peter Heinrich
+##  Copyright ï¿½ 2006-8  Peter Heinrich
 ##  All Rights Reserved
 ##
 ##  $URL$
@@ -175,9 +175,10 @@ class Modbus
       sum  = crc( adu )
       adu += (0xff & sum).chr + (sum >> 8).chr
     else
-      adu  = ":%02x" % slave
+      adu  = ':'
+      pdu = slave.chr + pdu
       pdu.each_byte { |b| adu += "%02x" % b }
-      adu += "%02x\r\n" % lrc( adu[ 1..-1 ] )
+      adu += "%02x\r\n" % lrc( pdu )
     end
 
 	puts "Sending \"#{adu}\"" if $debug
@@ -197,16 +198,16 @@ class Modbus
         puts( "CRC incorrect! (Calculated 0x%04x, found 0x%04x)" % [sum, adu[ -2 ] + (adu[ -1 ] << 8)] )
       end
     else
-      slave = adu[ 1..2 ].hex
-      pdu = ""
-   
-      sum = lrc( adu[ 1..-5 ] )
-      if sum != adu[ -4..-3 ].hex
-        puts( "LRC incorrect! (Calculated 0x%02x, found 0x%02x)" % [sum, adu[ -4..-3 ].hex] )
+      data = adu[ 1..-3 ]
+      (0...data.length).step( 2 ) { |i| pdu << data[ i..i+1 ].hex.chr }
+ 
+      sum = lrc( pdu[ 0..-2 ] )
+      if sum != pdu[ -1 ]
+        puts( "LRC incorrect! (Calculated 0x%02x, found 0x%02x)" % [sum, pdu[ -1 ]] )
       end
-
-      adu = adu[ 3..-5 ]
-      (0...adu.length).step( 2 ) { |i| pdu << adu[ i..i+1 ].hex.chr }
+ 
+      slave = pdu[ 0 ]
+      pdu = pdu[ 1, -2 ]
     end
 
     return slave, pdu
