@@ -1,0 +1,21 @@
+PIC Modbus
+Copyright (c) 2006,2008  Peter Heinrich
+
+This library constitutes a tiny Modbus server (slave) for the Microchip PIC
+18Fxxxx-series of microcontrollers (16-bit), coded in assembler.  It relies on
+the PIC-framework library.  Although the code relies on certain characteristics
+and features specific to the 18Fxxxx family (e.g. access bank, relatively large
+RAM storage area), porting it to other PIC types would not be impossible.
+
+This server supports both ASCII and RTU modes, although RTU hasn't yet been
+extensively tested.  Similarly, communication speeds above 19200 baud haven't
+been tested rigorously.  There is currently a known issue in the order of
+operations with respect to ASCII mode LRC checksum calculation (the buffer
+is checksummed before after conversion from binary format, instead of before).
+
+Diagnostic commands documented in the Modbus specification are supported to
+the extent allowed--some commands are necessarily application-specific.  In
+fact, due to the mapping model of Modbus, most commands must be implemented
+according to the requirements of the application.  This library simply provides
+a framework on which to hang that code, handling the protocol, timing, and
+error conditions.

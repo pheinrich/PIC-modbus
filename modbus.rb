@@ -1,22 +1,28 @@
 #!/usr/bin/ruby
 ## ---------------------------------------------------------------------------
 ##
-##  Modbus
+##  Tiny Modbus Master
+##  Copyright (c) 2006,2008  Peter Heinrich
 ##
-##  Copyright � 2006-8  Peter Heinrich
-##  All Rights Reserved
+##  This program is free software; you can redistribute it and/or
+##  modify it under the terms of the GNU General Public License
+##  as published by the Free Software Foundation; either version 2
+##  of the License, or (at your option) any later version.
 ##
-##  $URL$
-##  $Revision$
+##  This program is distributed in the hope that it will be useful,
+##  but WITHOUT ANY WARRANTY; without even the implied warranty of
+##  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+##  GNU General Public License for more details.
 ##
+##  You should have received a copy of the GNU General Public License
+##  along with this program; if not, write to the Free Software
+##  Foundation, Inc., 51 Franklin Street, Boston, MA  02110-1301, USA.
+##
+## ---------------------------------------------------------------------------
 ##  This file defines a tiny Modbus master (client) suitable for testing and
 ##  debugging of the PIC Modbus slave (server) library.  This master is de-
 ##  signed for interactive use in irb, exposing specific Modbus send/receive
 ##  actions as public methods.
-##
-## ---------------------------------------------------------------------------
-##  $Author$
-##  $Date$
 ## ---------------------------------------------------------------------------
 
 
