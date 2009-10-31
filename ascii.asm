@@ -238,9 +238,9 @@ rxWaiting:
    ; Compute the checksum from the original characters, then convert the message
    ; to the equivalent binary (RTU) format.  Once that's done, we can use common
    ; code to validate the address, verify the checksum, and parse the contents.
+   rcall    ascii2rtu
    lfsr     FSR0, Modbus.kASCIIBuffer ; FSR0 = message head
    rcall    calcLRC
-   rcall    ascii2rtu
 
    call     Frame.isValid
    andlw    0xff                    ; was the validation successful?
@@ -300,22 +300,22 @@ ASCII.isrTx:
    cpfseq   Modbus.State
      bra    txEmission
 
-   ; Emit Start State:  a message reply we want to send is waiting in kASCIIBuffer,
+   ; Emit Start State:  a message reply we want to send is waiting in kTxBuffer,
    ; but we must calculate its checksum before we can transmit it.
-   rcall    rtu2ascii               ; convert to ASCII mode first
-   lfsr     FSR0, Modbus.kASCIIBuffer
+   lfsr     FSR0, Modbus.kTxBuffer  ; FSR0 = message head
    rcall    calcLRC                 ; calculate the checksum
+   rcall    rtu2ascii               ; convert to ASCII mode
 
    ; Store the checksum at the end of the message buffer and update the tail.
    movf     Frame.Checksum, W
    swapf    WREG, W
    call     Util.hex2char
-   movwf    POSTINC0
+   movwf    POSTINC2
 
    movf     Frame.Checksum, W
    call     Util.hex2char
-   movwf    POSTINC0
-   CopyWord FSR0L, Frame.Head
+   movwf    POSTINC2
+   CopyWord FSR2L, Frame.Head
 
    ; Transmit the start-of-frame character and switch to the next state.
    movlw    Modbus.kState_Emission
