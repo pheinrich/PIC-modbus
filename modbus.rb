@@ -187,7 +187,7 @@ class Modbus
       adu += "%02x\r\n" % lrc( pdu )
     end
 
-	puts "Sending \"#{adu}\"" if $debug
+    puts "Sending \"#{adu}\"" if $debug
     @sp.puts( adu ) if @sp
   end
 
@@ -205,6 +205,7 @@ class Modbus
       end
     else
       data = adu[ 1..-3 ]
+      pdu = ""
       (0...data.length).step( 2 ) { |i| pdu << data[ i..i+1 ].hex.chr }
  
       sum = lrc( pdu[ 0..-2 ] )
@@ -213,7 +214,7 @@ class Modbus
       end
  
       slave = pdu[ 0 ]
-      pdu = pdu[ 1, -2 ]
+      pdu = pdu[ 1..-2 ]
     end
 
     return slave, pdu
