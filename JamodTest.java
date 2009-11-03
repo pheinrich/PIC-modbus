@@ -38,7 +38,7 @@
 
 
 
-import javax.comm.SerialPort;
+import gnu.io.SerialPort;
 import net.wimpi.modbus.Modbus;
 import net.wimpi.modbus.facade.ModbusSerialMaster;
 import net.wimpi.modbus.procimg.Register;
@@ -60,8 +60,8 @@ public class JamodTest
    public static void main( String[] args )
    {
       ModbusSerialMaster msm = null;
-      String port = "/dev/ttyIfos";
-      int slave = 3;
+      String port = "/dev/tty.Ifos";
+      int slave = 4;
       int value = 1;
 
       try
