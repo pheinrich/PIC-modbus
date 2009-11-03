@@ -9,9 +9,7 @@ RAM storage area), porting it to other PIC types would not be impossible.
 
 This server supports both ASCII and RTU modes, although RTU hasn't yet been
 extensively tested.  Similarly, communication speeds above 19200 baud haven't
-been tested rigorously.  There is currently a known issue in the order of
-operations with respect to ASCII mode LRC checksum calculation (the buffer
-is checksummed after conversion from binary format, instead of before).
+been tested rigorously.
 
 Diagnostic commands documented in the Modbus specification are supported to
 the extent allowed--some commands are necessarily application-specific.  In
