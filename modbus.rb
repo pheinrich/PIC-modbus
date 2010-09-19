@@ -39,6 +39,17 @@ DEF_PARITY = SerialPort::EVEN
 
 
 
+# Initialize some constants from the modbus.inc include file
+File.open( "#{File.dirname( __FILE__ )}/modbus.inc", "r" ).each_line do |line|
+  match = /Modbus\.k([A-Za-z0-9]+)\s+equ\s+([0-9]+)/.match( line )
+  if match
+    key, value = match.captures
+    Kernel.const_set( key, value.to_i )
+  end
+end
+
+
+
 class Integer
   def to_word
     return (self >> 8).chr + (0xff & self).chr
@@ -249,7 +260,7 @@ class Modbus
 
 
   def diagClear( slave )
-    tx( slave, 8.chr + 10.to_word )
+    tx( slave, Diagnostics.chr + DiagClear.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -258,7 +269,7 @@ class Modbus
   end
 
   def diagClearOverrun( slave )
-    tx( slave, 8.chr + 20.to_word )
+    tx( slave, Diagnostics.chr + DiagClearOverrun.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -267,7 +278,7 @@ class Modbus
   end
 
   def diagGetBusyCount( slave )
-    tx( slave, 8.chr + 17.to_word )
+    tx( slave, Diagnostics.chr + DiagGetBusyCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -279,7 +290,7 @@ class Modbus
   end
 
   def diagGetErrorCount( slave )
-    tx( slave, 8.chr + 12.to_word )
+    tx( slave, Diagnostics.chr + DiagGetErrorCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -291,7 +302,7 @@ class Modbus
   end
 
   def diagGetExceptCount( slave )
-    tx( slave, 8.chr + 13.to_word )
+    tx( slave, Diagnostics.chr + DiagGetExceptCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -303,7 +314,7 @@ class Modbus
   end
 
   def diagGetMsgCount( slave )
-    tx( slave, 8.chr + 11.to_word )
+    tx( slave, Diagnostics.chr + DiagGetMsgCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -315,7 +326,7 @@ class Modbus
   end
 
   def diagGetNAKCount( slave )
-    tx( slave, 8.chr + 16.to_word )
+    tx( slave, Diagnostics.chr + DiagGetNAKCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -327,7 +338,7 @@ class Modbus
   end
 
   def diagGetNoRespCount( slave )
-    tx( slave, 8.chr + 15.to_word )
+    tx( slave, Diagnostics.chr + DiagGetNoRespCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -339,7 +350,7 @@ class Modbus
   end
 
   def diagGetOverrunCount( slave )
-    tx( slave, 8.chr + 18.to_word )
+    tx( slave, Diagnostics.chr + DiagGetOverrunCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -351,31 +362,31 @@ class Modbus
   end
 
   def diagGetRegister( slave )
-    tx( slave, 8.chr + 2.to_word )
+    tx( slave, Diagnostics.chr + DiagGetRegister.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
       register = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
       puts "Slave #{slave} [diagGetRegister]\n  register: #{register}" if $verbose
-	  register
+      register
     end
   end
 
   def diagGetSlaveMsgCount( slave )
-    tx( slave, 8.chr + 14.to_word )
+    tx( slave, Diagnostics.chr + DiagGetSlaveMsgCount.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
       messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
       puts "Slave #{slave} [diagGetSlaveMsgCount]\n  messages: #{messages}" if $verbose
-	  messages
+      messages
     end
   end
 
   def diagRestartComm( slave, clearLog = false )
-    tx( slave, 8.chr + 1.to_word + (clearLog ? 0 : 0xff00).to_word )
+    tx( slave, Diagnostics.chr + DiagRestartComm.to_word + (clearLog ? 0 : 0xff00).to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -384,7 +395,7 @@ class Modbus
   end
 
   def diagReturnQuery( slave, data )
-    tx( slave, 8.chr + 0.to_word + data.pack( "c*" ) )
+    tx( slave, Diagnostics.chr + DiagReturnQuery.to_word + data.pack( "c*" ) )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -394,16 +405,16 @@ class Modbus
   end
 
   def diagSetDelim( slave, delim )
-    tx( slave, 8.chr + 3.to_word + delim + 0.chr )
+    tx( slave, Diagnostics.chr + DiagSetDelim.to_word + delim + 0.chr )
     slave, pdu = rx()
 
     unless is_error?( pdu )
       puts "Slave #{slave} [diagSetDelim]:\n  delimiter: \"" + delim + "\"" if $verbose
-	end
+    end
   end
 
   def diagSetListenOnly( slave )
-    tx( slave, 8.chr + 4.to_word )
+    tx( slave, Diagnostics.chr + DiagSetListenOnly.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -416,7 +427,7 @@ class Modbus
   end
 
   def encapGetDeviceId( slave, idCode, objectId, array = nil )
-    tx( slave, 43.chr + 14.chr + idCode.chr + objectId.chr )
+    tx( slave, MEITransport.chr + EncapGetDeviceId.chr + idCode.chr + objectId.chr )
     slave, pdu = rx()
  
     unless is_error?( pdu )
@@ -450,7 +461,7 @@ class Modbus
   end
 
   def getEventCount( slave )
-    tx( slave, 11.chr )
+    tx( slave, GetEventCount.chr )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -466,7 +477,7 @@ class Modbus
   end
 
   def getEventLog( slave )
-    tx( slave, 12.chr )
+    tx( slave, GetEventLog.chr )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -484,7 +495,7 @@ class Modbus
   end
 
   def getExceptions( slave )
-    tx( slave, 7.chr )
+    tx( slave, GetExceptions.chr )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -497,7 +508,7 @@ class Modbus
   end
 
   def getSlaveId( slave )
-    tx( slave, 17.chr )
+    tx( slave, GetSlaveId.chr )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -507,7 +518,7 @@ class Modbus
   end
 
   def readCoils( slave, address, count )
-    tx( slave, 1.chr + address.to_word + count.to_word )
+    tx( slave, ReadCoils.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -520,7 +531,7 @@ class Modbus
   end
 
   def readDiscretes( slave, address, count )
-    tx( slave, 2.chr + address.to_word + count.to_word )
+    tx( slave, ReadDiscretes.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -533,7 +544,7 @@ class Modbus
   end
 
   def readFIFOQueue( slave, queue )
-    tx( slave, 24.chr + queue.to_word )
+    tx( slave, ReadFIFOQueue.chr + queue.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -549,7 +560,7 @@ class Modbus
     pdu = ""
     subreqs.each { |sr| pdu << 6.chr << sr.pack( "nnn" ) }
 
-    tx( slave, 20.chr + pdu.length.chr + pdu )
+    tx( slave, ReadFileRecord.chr + pdu.length.chr + pdu )
     slave, pdu = rx()
  
     unless is_error?( pdu )
@@ -565,13 +576,13 @@ class Modbus
         puts "Slave #{slave} [readFileRecord]:"
         puts "  records: #{records.length}"
         puts "  total:   #{pdu[ 1 ]} bytes"
-	  end
+      end
       records
     end
   end
 
   def readInputs( slave, address, count )
-    tx( slave, 4.chr + address.to_word + count.to_word )
+    tx( slave, ReadInputs.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -581,7 +592,7 @@ class Modbus
   end
 
   def readRegisters( slave, address, count )
-    tx( slave, 3.chr + address.to_word + count.to_word )
+    tx( slave, ReadRegisters.chr + address.to_word + count.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -593,7 +604,7 @@ class Modbus
   def readWriteRegs( slave, readAddr, count, writeAddr, values )
     length = values.length
 
-    tx( slave, 23.chr + readAddr.to_word + count.to_word +
+    tx( slave, ReadWriteRegs.chr + readAddr.to_word + count.to_word +
         writeAddr.to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
     slave, pdu = rx()
 
@@ -604,7 +615,7 @@ class Modbus
   end
 
   def writeCoil( slave, address, value )
-    tx( slave, 5.chr + address.to_word + (0 == value ? 0 : 0xff00).to_word )
+    tx( slave, WriteCoil.chr + address.to_word + (0 == value ? 0 : 0xff00).to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -620,14 +631,14 @@ class Modbus
     pdu = ""
     0.step( count, 8 ) { |i| pdu << values[ i...i+8 ].join.reverse.to_i( 2 ).chr }
 
-    tx( slave, 15.chr + address.to_word + count.to_word + pdu.length.chr + pdu )
+    tx( slave, WriteCoils.chr + address.to_word + count.to_word + pdu.length.chr + pdu )
     slave, pdu = rx()
 
     unless is_error?( pdu )
       count = pdu[ 3, 2 ].unpack( "n" )
  
       puts "Slave #{slave} [writeCoils]:\n  #{count} coil(s) written" if $verbose
-	  count
+      count
     end
   end
 
@@ -636,7 +647,7 @@ class Modbus
     pdu = ""
     subreqs.each { |sr| pdu << 6.chr << sr.pack( "nn" ) << sr[ 2 ].pack( "n*" ) }
 
-    tx( slave, 21.chr + pdu.length.chr + pdu )
+    tx( slave, WriteFileRecord.chr + pdu.length.chr + pdu )
     slave, pdu = rx()
  
     unless is_error?( pdu )
@@ -644,12 +655,12 @@ class Modbus
         puts "Slave #{slave} [writeFileRecord]:"
         puts "  records: #{subreqs.length}"
         puts "  total:   #{pdu[ 1 ]} bytes"
-	  end
+      end
     end
   end
 
   def writeRegister( slave, address, value )
-    tx( slave, 6.chr + address.to_word + value.to_word )
+    tx( slave, WriteRegister.chr + address.to_word + value.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
@@ -663,19 +674,19 @@ class Modbus
   def writeRegisters( slave, address, values )
     length = values.length
 
-    tx( slave, 16.chr + address.to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
+    tx( slave, WriteRegisters.chr + address.to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
     slave, pdu = rx()
 
     unless is_error?( pdu )
       count = pdu[ 3, 2 ].unpack( "n" )
  
       puts "Slave #{slave} [writeRegisters]:\n  #{count} register(s) written" if $verbose
-	  count
+      count
     end
   end
 
   def writeRegMask( slave, address, andMask, orMask )
-    tx( slave, 22.chr + address.to_word + andMask.to_word + orMask.to_word )
+    tx( slave, WriteRegMask.chr + address.to_word + andMask.to_word + orMask.to_word )
     slave, pdu = rx()
 
     unless is_error?( pdu )
