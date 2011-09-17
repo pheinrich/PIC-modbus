@@ -1,0 +1,7 @@
+*.o
+*.cod
+*.cof
+*.lib
+*.lst
+*.map
+*~

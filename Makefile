@@ -39,20 +39,24 @@
 
 
 LIB=modbus.lib
-DEVICE=18F242
+DEVICE=18f242
 
 OBJS=ascii.o diag.o frame.o modbus.o rtu.o
-INCS=../framework/framework.inc ../framework/macros.inc modbus.inc private.inc
+DEPS=modbus.inc private.inc
+
+LIBDIR=..
+INCS=-I $(LIBDIR)/framework
+LIBS=$(LIBDIR)/framework/framework.lib
 
 AS=gpasm
-ASFLAGS=-c -p p$(DEVICE) -w 2
+ASFLAGS=-c $(INCS) -p p$(DEVICE) -w 2
 AR=gplib
 ARFLAGS=-c
 
 $(LIB): $(OBJS)
 	$(AR) $(ARFLAGS) $(LIB) $^
 
-$(OBJS): $(INCS)
+$(OBJS): $(DEPS) $(LIBS)
 
 %.o : %.asm
 	$(AS) $(ASFLAGS) $<
