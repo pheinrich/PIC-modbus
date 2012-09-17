@@ -1,4 +1,5 @@
-#!/usr/bin/ruby
+#!/usr/bin/env ruby
+# -*- coding: iso-8859-1 -*-
 ## ---------------------------------------------------------------------------
 ##
 ##  Tiny Modbus Master
@@ -136,6 +137,10 @@ class Modbus
     end
   end
 
+  def port
+    @sp
+  end
+
   def ascii!
     $databits = 7
   end
@@ -195,10 +200,15 @@ class Modbus
       adu  = ':'
       pdu = slave.chr + pdu
       pdu.each_byte { |b| adu += "%02x" % b }
-      adu += "%02x\r\n" % lrc( pdu )
+      adu += "%02x\r\n" % lrc( adu[ 1..-1 ] )
     end
 
-    puts "Sending \"#{adu}\"" if $debug
+    if $debug
+      puts "Sending \"#{adu}\""
+      adu.each_byte { |b| print "%02x " % b }
+      puts
+    end
+
     @sp.puts( adu ) if @sp
   end
 
@@ -215,17 +225,16 @@ class Modbus
         puts( "CRC incorrect! (Calculated 0x%04x, found 0x%04x)" % [sum, adu[ -2 ] + (adu[ -1 ] << 8)] )
       end
     else
-      data = adu[ 1..-3 ]
+      slave = adu[ 1..2 ].hex
       pdu = ""
-      (0...data.length).step( 2 ) { |i| pdu << data[ i..i+1 ].hex.chr }
  
-      sum = lrc( pdu[ 0..-2 ] )
-      if sum != pdu[ -1 ]
-        puts( "LRC incorrect! (Calculated 0x%02x, found 0x%02x)" % [sum, pdu[ -1 ]] )
+      sum = lrc( adu[ 1..-5 ] )
+      if sum != adu[ -4..-3 ].hex
+        puts( "LRC incorrect! (Calculated 0x%02x, found 0x%02x)" % [sum, adu[ -4..-3 ].hex] )
       end
  
-      slave = pdu[ 0 ]
-      pdu = pdu[ 1..-2 ]
+      adu = adu[ 3..-5]
+      (0...adu.length).step( 2 ) { |i| pdu << adu[ i..i+1 ].hex.chr }
     end
 
     return slave, pdu
@@ -261,43 +270,51 @@ class Modbus
 
   def diagClear( slave )
     tx( slave, Diagnostics.chr + DiagClear.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [diagClear]" if $verbose
+      unless is_error?( pdu )
+        puts "Slave #{slave} [diagClear]" if $verbose
+      end
     end
   end
 
   def diagClearOverrun( slave )
     tx( slave, Diagnostics.chr + DiagClearOverrun.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [diagClearOverrun]" if $verbose
+      unless is_error?( pdu )
+        puts "Slave #{slave} [diagClearOverrun]" if $verbose
+      end
     end
   end
 
   def diagGetBusyCount( slave )
     tx( slave, Diagnostics.chr + DiagGetBusyCount.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      busy = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        busy = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetBusyCount]:\n  busy: #{busy}" if $verbose
-      busy
+        puts "Slave #{slave} [diagGetBusyCount]:\n  busy: #{busy}" if $verbose
+        busy
+      end
     end
   end
 
   def diagGetErrorCount( slave )
     tx( slave, Diagnostics.chr + DiagGetErrorCount.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      errors = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        errors = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetErrorCount]:\n  bus errors: #{errors}" if $verbose
-      errors
+        puts "Slave #{slave} [diagGetErrorCount]:\n  bus errors: #{errors}" if $verbose
+        errors
+      end
     end
   end
 
@@ -315,110 +332,130 @@ class Modbus
 
   def diagGetMsgCount( slave )
     tx( slave, Diagnostics.chr + DiagGetMsgCount.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetMsgCount]\n  messages: #{messages}" if $verbose
-      messages
+        puts "Slave #{slave} [diagGetMsgCount]\n  messages: #{messages}" if $verbose
+        messages
+      end
     end
   end
 
   def diagGetNAKCount( slave )
     tx( slave, Diagnostics.chr + DiagGetNAKCount.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      naks = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        naks = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetNAKCount]\n  NAKs: #{naks}" if $verbose
-      naks
+        puts "Slave #{slave} [diagGetNAKCount]\n  NAKs: #{naks}" if $verbose
+        naks
+      end
     end
   end
 
   def diagGetNoRespCount( slave )
     tx( slave, Diagnostics.chr + DiagGetNoRespCount.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      noResp = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        noResp = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetNoRespCount]\n  no response: #{noResp}" if $verbose
-      noResp
+        puts "Slave #{slave} [diagGetNoRespCount]\n  no response: #{noResp}" if $verbose
+        noResp
+      end
     end
   end
 
   def diagGetOverrunCount( slave )
     tx( slave, Diagnostics.chr + DiagGetOverrunCount.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      overruns = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        overruns = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetOverrunCount]\n  overruns: #{overruns}" if $verbose
-      overruns
+        puts "Slave #{slave} [diagGetOverrunCount]\n  overruns: #{overruns}" if $verbose
+        overruns
+      end
     end
   end
 
   def diagGetRegister( slave )
     tx( slave, Diagnostics.chr + DiagGetRegister.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      register = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        register = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetRegister]\n  register: #{register}" if $verbose
-      register
+        puts "Slave #{slave} [diagGetRegister]\n  register: #{register}" if $verbose
+        register
+      end
     end
   end
 
   def diagGetSlaveMsgCount( slave )
     tx( slave, Diagnostics.chr + DiagGetSlaveMsgCount.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
+      unless is_error?( pdu )
+        messages = pdu[ 3, 2 ].unpack( "n" )[ 0 ]
 
-      puts "Slave #{slave} [diagGetSlaveMsgCount]\n  messages: #{messages}" if $verbose
-      messages
+        puts "Slave #{slave} [diagGetSlaveMsgCount]\n  messages: #{messages}" if $verbose
+        messages
+      end
     end
   end
 
   def diagRestartComm( slave, clearLog = false )
     tx( slave, Diagnostics.chr + DiagRestartComm.to_word + (clearLog ? 0 : 0xff00).to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [diagRestartComm]:\n  log: #{clearLog ? "cleared" : "preserved"}" if $verbose
+      unless is_error?( pdu )
+        puts "Slave #{slave} [diagRestartComm]:\n  log: #{clearLog ? "cleared" : "preserved"}" if $verbose
+      end
     end
   end
 
   def diagReturnQuery( slave, data )
     tx( slave, Diagnostics.chr + DiagReturnQuery.to_word + data.pack( "c*" ) )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [diagReturnQuery]" if $verbose
-      pdu[ 3..-1 ].unpack( "c*" )
+      unless is_error?( pdu )
+        puts "Slave #{slave} [diagReturnQuery]" if $verbose
+        pdu[ 3..-1 ].unpack( "c*" )
+      end
     end
   end
 
   def diagSetDelim( slave, delim )
     tx( slave, Diagnostics.chr + DiagSetDelim.to_word + delim + 0.chr )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [diagSetDelim]:\n  delimiter: \"" + delim + "\"" if $verbose
+      unless is_error?( pdu )
+        puts "Slave #{slave} [diagSetDelim]:\n  delimiter: \"" + delim + "\"" if $verbose
+      end
     end
   end
 
   def diagSetListenOnly( slave )
     tx( slave, Diagnostics.chr + DiagSetListenOnly.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [diagSetListenOnly]" if $verbose
+      unless is_error?( pdu )
+        puts "Slave #{slave} [diagSetListenOnly]" if $verbose
+      end
     end
   end
 
@@ -428,130 +465,146 @@ class Modbus
 
   def encapGetDeviceId( slave, idCode, objectId, array = nil )
     tx( slave, MEITransport.chr + EncapGetDeviceId.chr + idCode.chr + objectId.chr )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
  
-    unless is_error?( pdu )
-      conformity = pdu[ 3 ]
-      moreFollows = (0 != pdu[ 4 ])
-      nextObjectId = pdu[ 5 ]
-      objectCount = pdu[ 6 ]
+      unless is_error?( pdu )
+        conformity = pdu[ 3 ]
+        moreFollows = (0 != pdu[ 4 ])
+        nextObjectId = pdu[ 5 ]
+        objectCount = pdu[ 6 ]
 
-      continuation = !array.nil?
-      array = [] if array.nil?
-      list = pdu[ 7..-1 ]
+        continuation = !array.nil?
+        array = [] if array.nil?
+        list = pdu[ 7..-1 ]
 
-      while 0 < list.length do
-        length = list[ 1 ]
-        array << [ list[ 0 ], list[ 2, length ] ]
-        list = list[ 2+length..-1 ]
+        while 0 < list.length do
+          length = list[ 1 ]
+          array << [ list[ 0 ], list[ 2, length ] ]
+          list = list[ 2+length..-1 ]
+        end
+ 
+        encapGetDeviceId( slave, idCode, nextObjectId, array ) if moreFollows
+ 
+        if !continuation && $verbose
+          puts "Slave #{slave} [encapGetDeviceId]"
+          puts "  conformity  : 0x%02x" % conformity
+          puts "  object count: #{array.length}"
+
+          array.each {|o| puts "  Object #{o[ 0 ]}: #{o[ 1 ]}" }
+        end
+
+        array
       end
- 
-      encapGetDeviceId( slave, idCode, nextObjectId, array ) if moreFollows
- 
-      if !continuation && $verbose
-        puts "Slave #{slave} [encapGetDeviceId]"
-        puts "  conformity  : 0x%02x" % conformity
-        puts "  object count: #{array.length}"
-
-        array.each {|o| puts "  Object #{o[ 0 ]}: #{o[ 1 ]}" }
-      end
-
-      array
     end
   end
 
   def getEventCount( slave )
     tx( slave, GetEventCount.chr )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      status, events = pdu[1, 4].unpack( "n2" )
+      unless is_error?( pdu )
+        status, events = pdu[1, 4].unpack( "n2" )
 
-      if $verbose
-        puts "Slave #{slave} [getEventCount]:"
-        puts "  status: #{0 == status ? "READY" : "BUSY"}"
-        puts "  events:  #{events}"
-	  end
-	  [status, events]
+        if $verbose
+          puts "Slave #{slave} [getEventCount]:"
+          puts "  status: #{0 == status ? "READY" : "BUSY"}"
+          puts "  events:  #{events}"
+        end
+        [status, events]
+      end
     end
   end
 
   def getEventLog( slave )
     tx( slave, GetEventLog.chr )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      status, events, messages = pdu[2, 6].unpack( "n3" )
-      log = pdu[8..-1].unpack( "c*" )
+      unless is_error?( pdu )
+        status, events, messages = pdu[2, 6].unpack( "n3" )
+        log = pdu[8..-1].unpack( "c*" )
 
-      if $verbose
-        puts "Slave #{slave} [getEventLog]:"
-        puts "  status:   #{0 == status ? "READY" : "BUSY"}"
-        puts "  events:   #{events}"
-        puts "  messages: #{messages}"
-	  end
-      log
+        if $verbose
+          puts "Slave #{slave} [getEventLog]:"
+          puts "  status:   #{0 == status ? "READY" : "BUSY"}"
+          puts "  events:   #{events}"
+          puts "  messages: #{messages}"
+        end
+        log
+      end
     end
   end
 
   def getExceptions( slave )
     tx( slave, GetExceptions.chr )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      if $verbose
-        puts "Slave #{slave} [getExceptions]:"
-        8.times { |i| puts "  exception ##{i}: #{0 == (1 << i) & pdu[ 1 ] ? "NO" : "YES"}" }
-	  end
-	  # FIX return array of exception values
+      unless is_error?( pdu )
+        if $verbose
+          puts "Slave #{slave} [getExceptions]:"
+          8.times { |i| puts "  exception ##{i}: #{0 == (1 << i) & pdu[ 1 ] ? "NO" : "YES"}" }
+        end
+        # FIX return array of exception values
+      end
     end
   end
 
   def getSlaveId( slave )
     tx( slave, GetSlaveId.chr )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [getSlaveId]" if $verbose
-      pdu[ 2..-1 ]
+      unless is_error?( pdu )
+        puts "Slave #{slave} [getSlaveId]" if $verbose
+        pdu[ 2..-1 ]
+      end
     end
   end
 
   def readCoils( slave, address, count )
     tx( slave, ReadCoils.chr + address.to_word + count.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      coils = []
-      pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| coils << b - ?0 }
+      unless is_error?( pdu )
+        coils = []
+        pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| coils << b - ?0 }
 
-      puts "Slave #{slave} [readCoils]" if $verbose
-      coils[ 0, count ]
+        puts "Slave #{slave} [readCoils]" if $verbose
+        coils[ 0, count ]
+      end
     end
   end
 
   def readDiscretes( slave, address, count )
     tx( slave, ReadDiscretes.chr + address.to_word + count.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      discretes = []
-      pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| discretes << b - ?0 }
+      unless is_error?( pdu )
+        discretes = []
+        pdu[ 2..-1 ].unpack( "b*" ).join.each_byte { |b| discretes << b - ?0 }
 
-      puts "Slave #{slave} [readDiscretes]" if $verbose
-      discretes[ 0, count ]
+        puts "Slave #{slave} [readDiscretes]" if $verbose
+        discretes[ 0, count ]
+      end
     end
   end
 
   def readFIFOQueue( slave, queue )
     tx( slave, ReadFIFOQueue.chr + queue.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      queue = pdu[ 5..-1 ].unpack( "n*" )
+      unless is_error?( pdu )
+        queue = pdu[ 5..-1 ].unpack( "n*" )
 
-      puts "Slave #{slave} [readFIFOQueue]" if $verbose
-      queue
+        puts "Slave #{slave} [readFIFOQueue]" if $verbose
+        queue
+      end
     end
   end
 
@@ -561,43 +614,49 @@ class Modbus
     subreqs.each { |sr| pdu << 6.chr << sr.pack( "nnn" ) }
 
     tx( slave, ReadFileRecord.chr + pdu.length.chr + pdu )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
  
-    unless is_error?( pdu )
-      records = []
-      offset = 2
+      unless is_error?( pdu )
+        records = []
+        offset = 2
 
-      while offset < pdu.length - 3 do
-        records << pdu[ 2 + offset, pdu[ offset ] - 1 ].unpack( "n*" )
-        offset += pdu[ offset ] + 1
-      end
+        while offset < pdu.length - 3 do
+          records << pdu[ 2 + offset, pdu[ offset ] - 1 ].unpack( "n*" )
+          offset += pdu[ offset ] + 1
+        end
  
-      if $verbose
-        puts "Slave #{slave} [readFileRecord]:"
-        puts "  records: #{records.length}"
-        puts "  total:   #{pdu[ 1 ]} bytes"
+        if $verbose
+          puts "Slave #{slave} [readFileRecord]:"
+          puts "  records: #{records.length}"
+          puts "  total:   #{pdu[ 1 ]} bytes"
+        end
+        records
       end
-      records
     end
   end
 
   def readInputs( slave, address, count )
     tx( slave, ReadInputs.chr + address.to_word + count.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [readInputs]" if $verbose
-      inputs = pdu[ 2..-1 ].unpack( "n*" )
+      unless is_error?( pdu )
+        puts "Slave #{slave} [readInputs]" if $verbose
+        inputs = pdu[ 2..-1 ].unpack( "n*" )
+      end
     end
   end
 
   def readRegisters( slave, address, count )
     tx( slave, ReadRegisters.chr + address.to_word + count.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [readRegisters]" if $verbose
-      registers = pdu[ 2..-1 ].unpack( "n*" )
+      unless is_error?( pdu )
+        puts "Slave #{slave} [readRegisters]" if $verbose
+        registers = pdu[ 2..-1 ].unpack( "n*" )
+      end
     end
   end
 
@@ -606,23 +665,27 @@ class Modbus
 
     tx( slave, ReadWriteRegs.chr + readAddr.to_word + count.to_word +
         writeAddr.to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [readWriteRegs]" if $verbose
-      inputs = pdu[ 2..-1 ].unpack( "n*" )
+      unless is_error?( pdu )
+        puts "Slave #{slave} [readWriteRegs]" if $verbose
+        inputs = pdu[ 2..-1 ].unpack( "n*" )
+      end
     end
   end
 
   def writeCoil( slave, address, value )
     tx( slave, WriteCoil.chr + address.to_word + (0 == value ? 0 : 0xff00).to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      value = pdu[ 3, 2 ].unpack( "n" )
+      unless is_error?( pdu )
+        value = pdu[ 3, 2 ].unpack( "n" )
  
-      puts "Slave #{slave} [writeCoil]:\n  coil #{address}: #{0 == value[ 0 ] ? "RESET" : "SET"}" if $verbose
-      value
+        puts "Slave #{slave} [writeCoil]:\n  coil #{address}: #{0 == value[ 0 ] ? "RESET" : "SET"}" if $verbose
+        value
+      end
     end
   end
 
@@ -632,13 +695,15 @@ class Modbus
     0.step( count, 8 ) { |i| pdu << values[ i...i+8 ].join.reverse.to_i( 2 ).chr }
 
     tx( slave, WriteCoils.chr + address.to_word + count.to_word + pdu.length.chr + pdu )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      count = pdu[ 3, 2 ].unpack( "n" )
+      unless is_error?( pdu )
+        count = pdu[ 3, 2 ].unpack( "n" )
  
-      puts "Slave #{slave} [writeCoils]:\n  #{count} coil(s) written" if $verbose
-      count
+        puts "Slave #{slave} [writeCoils]:\n  #{count} coil(s) written" if $verbose
+        count
+      end
     end
   end
 
@@ -648,26 +713,30 @@ class Modbus
     subreqs.each { |sr| pdu << 6.chr << sr.pack( "nn" ) << sr[ 2 ].pack( "n*" ) }
 
     tx( slave, WriteFileRecord.chr + pdu.length.chr + pdu )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
  
-    unless is_error?( pdu )
-      if $verbose
-        puts "Slave #{slave} [writeFileRecord]:"
-        puts "  records: #{subreqs.length}"
-        puts "  total:   #{pdu[ 1 ]} bytes"
+      unless is_error?( pdu )
+        if $verbose
+          puts "Slave #{slave} [writeFileRecord]:"
+          puts "  records: #{subreqs.length}"
+          puts "  total:   #{pdu[ 1 ]} bytes"
+        end
       end
     end
   end
 
   def writeRegister( slave, address, value )
     tx( slave, WriteRegister.chr + address.to_word + value.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      value = pdu[ 3, 2 ].unpack( "n" )
+      unless is_error?( pdu )
+        value = pdu[ 3, 2 ].unpack( "n" )
 
-      puts "Slave #{slave} [writeRegister]:\n  register #{address}: 0x%04x" % value if $verbose
-      value
+        puts "Slave #{slave} [writeRegister]:\n  register #{address}: 0x%04x" % value if $verbose
+        value
+      end
     end
   end
 
@@ -675,22 +744,26 @@ class Modbus
     length = values.length
 
     tx( slave, WriteRegisters.chr + address.to_word + length.to_word + (length << 1).chr + values.pack( "n*" ) )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      count = pdu[ 3, 2 ].unpack( "n" )
+      unless is_error?( pdu )
+        count = pdu[ 3, 2 ].unpack( "n" )
  
-      puts "Slave #{slave} [writeRegisters]:\n  #{count} register(s) written" if $verbose
-      count
+        puts "Slave #{slave} [writeRegisters]:\n  #{count} register(s) written" if $verbose
+        count
+      end
     end
   end
 
   def writeRegMask( slave, address, andMask, orMask )
     tx( slave, WriteRegMask.chr + address.to_word + andMask.to_word + orMask.to_word )
-    slave, pdu = rx()
+    if slave > 0
+      slave, pdu = rx()
 
-    unless is_error?( pdu )
-      puts "Slave #{slave} [writeRegMask]" if $verbose
+      unless is_error?( pdu )
+        puts "Slave #{slave} [writeRegMask]" if $verbose
+      end
     end
   end
 end
