@@ -1,5 +1,5 @@
 PIC Modbus
-Copyright (c) 2006,2008  Peter Heinrich
+Copyright © 2006,2008  Peter Heinrich
 
 This library constitutes a tiny Modbus server (slave) for the Microchip PIC
 18Fxxxx-series of microcontrollers (16-bit), coded in assembler.  It relies on

@@ -1,7 +1,7 @@
 // ---------------------------------------------------------------------------
 //
 //  PIC Modbus
-//  Copyright (c) 2006,2008  Peter Heinrich
+//  Copyright © 2006,2008  Peter Heinrich
 //
 //  This program is free software; you can redistribute it and/or
 //  modify it under the terms of the GNU General Public License

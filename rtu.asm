@@ -1,7 +1,7 @@
 ;; ---------------------------------------------------------------------------
 ;;
 ;;  PIC Modbus
-;;  Copyright (c) 2006,2008  Peter Heinrich
+;;  Copyright Â© 2006,2008  Peter Heinrich
 ;;
 ;;  This program is free software; you can redistribute it and/or
 ;;  modify it under the terms of the GNU General Public License
@@ -77,7 +77,7 @@
 ;;
 ;;  Four system cycles correspond to one instruction cycle, so a 20MHz clock
 ;;  means instructions execute at 5MHz, which means each instruction takes
-;;  0.2µs (200ns).  This macro should only be included in code called when
+;;  0.2Âµs (200ns).  This macro should only be included in code called when
 ;;  Timer1 interrupts are disabled.
 ;;
 TIMER1      macro timeout
@@ -108,8 +108,8 @@ TIMER1      macro timeout
 .modeovr                access_ovr
 ;; ---------------------------------------------------------------------------
 
-CharTimeout             res   2     ; the inter-character timeout, in µs
-FrameTimeout            res   2     ; the inter-frame timeout, in µs
+CharTimeout             res   2     ; the inter-character timeout, in Âµs
+FrameTimeout            res   2     ; the inter-frame timeout, in Âµs
 TimeoutDelta            res   2     ; difference between timeout values
 
 
@@ -121,10 +121,10 @@ TimeoutDelta            res   2     ; difference between timeout values
 ;; ----------------------------------------------
 ;;  Delay Timeout Table
 ;;
-;;  Precalculate the inter-character and inter-frame timeout delays (in µs)
+;;  Precalculate the inter-character and inter-frame timeout delays (in Âµs)
 ;;  for 9600, 19200, and >19200 baud.  For baud rates greater than 19200, the
-;;  timeouts are fixed at 750µs and 1750µs, respectively, to reduce the CPU
-;;  overhead of more frequent timer processing (see the Remark in §2.5.1.1 of
+;;  timeouts are fixed at 750Âµs and 1750Âµs, respectively, to reduce the CPU
+;;  overhead of more frequent timer processing (see the Remark in Â§2.5.1.1 of
 ;;  the MODBUS over Serial Line Specification and Implementation guide V1.0).
 ;;  At slower baud rates, the inter-character timeout is 1.5 times the char-
 ;;  acter time, the time to transmit one character; the inter-frame timeout is
@@ -137,19 +137,19 @@ TimeoutDelta            res   2     ; difference between timeout values
 ;;
 DelayTable:
    ; Character/frame timers at 9600 baud.
-   data     0xffff & -((3 * kFrequency) / (9600 << 3))   ; 156.25µs
-   data     0xffff & -((7 * kFrequency) / (9600 << 3))   ; 364.58µs
-   data     0xffff & -((4 * kFrequency) / (9600 << 3))   ; 354.58 - 156.25 ~= 208.33µs
+   data     0xffff & -((3 * kFrequency) / (9600 << 3))   ; 156.25Âµs
+   data     0xffff & -((7 * kFrequency) / (9600 << 3))   ; 364.58Âµs
+   data     0xffff & -((4 * kFrequency) / (9600 << 3))   ; 354.58 - 156.25 ~= 208.33Âµs
 
    ; Character/frame timers at 19200 baud.
-   data     0xffff & -((3 * kFrequency) / (19200 << 3))  ; 78.125µs
-   data     0xffff & -((7 * kFrequency) / (19200 << 3))  ; 182.29µs
-   data     0xffff & -((4 * kFrequency) / (19200 << 3))  ; 182.29 - 78.125 ~= 104.166µs
+   data     0xffff & -((3 * kFrequency) / (19200 << 3))  ; 78.125Âµs
+   data     0xffff & -((7 * kFrequency) / (19200 << 3))  ; 182.29Âµs
+   data     0xffff & -((4 * kFrequency) / (19200 << 3))  ; 182.29 - 78.125 ~= 104.166Âµs
 
    ; Character/frame timers for all baud rates greater than 19200.
-   data     0xffff & -((kFrequency / 4000000) *  750)    ;  750µs
-   data     0xffff & -((kFrequency / 4000000) * 1750)    ; 1750µs
-   data     0xffff & -((kFrequency / 4000000) * 1000)    ; 1000µs
+   data     0xffff & -((kFrequency / 4000000) *  750)    ;  750Âµs
+   data     0xffff & -((kFrequency / 4000000) * 1750)    ; 1750Âµs
+   data     0xffff & -((kFrequency / 4000000) * 1000)    ; 1000Âµs
 
 
 
@@ -214,7 +214,7 @@ copyDelays:
 ;;  void RTU.isrRx()
 ;;
 ;;  Processes a received binary character according to the current state of
-;;  the state machine.  See §2.5.1.1 of the "MODBUS over serial line imple-
+;;  the state machine.  See Â§2.5.1.1 of the "MODBUS over serial line imple-
 ;;  mentation guide V1.0".
 ;;
 RTU.isrRx:
