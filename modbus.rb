@@ -1,4 +1,5 @@
 #!/usr/bin/env ruby
+# -*- coding: utf-8 -*-
 ## ---------------------------------------------------------------------------
 ##
 ##  Tiny Modbus Master
@@ -165,7 +166,7 @@ class Modbus
   end
 
   def is_error?( pdu )
-    if pdu && 0 != (0x80 & pdu[ 0 ])
+    if pdu && 0 != (0x80 & pdu[ 0 ].to_i)
        puts "Error: #{@@errors[ pdu[ 1 ] ]}" if $verbose
        return true
     end
@@ -223,7 +224,7 @@ class Modbus
       if sum != adu[ -2 ] + (adu[ -1 ] << 8)
         puts( "CRC incorrect! (Calculated 0x%04x, found 0x%04x)" % [sum, adu[ -2 ] + (adu[ -1 ] << 8)] )
       end
-
+    else
       slave = adu[ 1..2 ].hex
       pdu = ""
  
