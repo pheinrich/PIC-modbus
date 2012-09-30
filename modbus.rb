@@ -1,9 +1,8 @@
 #!/usr/bin/env ruby
-# -*- coding: iso-8859-1 -*-
 ## ---------------------------------------------------------------------------
 ##
 ##  Tiny Modbus Master
-##  Copyright (c) 2006,2008  Peter Heinrich
+##  Copyright © 2006,2008  Peter Heinrich
 ##
 ##  This program is free software; you can redistribute it and/or
 ##  modify it under the terms of the GNU General Public License
@@ -166,7 +165,7 @@ class Modbus
   end
 
   def is_error?( pdu )
-    if 0 != (0x80 & pdu[ 0 ])
+    if pdu && 0 != (0x80 & pdu[ 0 ])
        puts "Error: #{@@errors[ pdu[ 1 ] ]}" if $verbose
        return true
     end
@@ -224,7 +223,7 @@ class Modbus
       if sum != adu[ -2 ] + (adu[ -1 ] << 8)
         puts( "CRC incorrect! (Calculated 0x%04x, found 0x%04x)" % [sum, adu[ -2 ] + (adu[ -1 ] << 8)] )
       end
-    else
+
       slave = adu[ 1..2 ].hex
       pdu = ""
  
