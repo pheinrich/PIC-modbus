@@ -470,7 +470,7 @@ class Modbus
  
       unless is_error?( pdu )
         conformity = pdu[ 3 ]
-        moreFollows = (0 != pdu[ 4 ])
+        moreFollows = (0 != pdu[ 4 ].ord)
         nextObjectId = pdu[ 5 ]
         objectCount = pdu[ 6 ]
 
@@ -479,8 +479,8 @@ class Modbus
         list = pdu[ 7..-1 ]
 
         while 0 < list.length do
-          length = list[ 1 ]
-          array << [ list[ 0 ], list[ 2, length ] ]
+          length = list[ 1 ].ord
+          array << [ list[ 0 ].ord, list[ 2, length ] ]
           list = list[ 2+length..-1 ]
         end
  
