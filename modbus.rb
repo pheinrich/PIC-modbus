@@ -166,8 +166,8 @@ class Modbus
   end
 
   def is_error?( pdu )
-    if pdu && 0 != (0x80 & pdu[ 0 ].to_i)
-       puts "Error: #{@@errors[ pdu[ 1 ] ]}" if $verbose
+    if pdu && 0 != (0x80 & pdu[ 0 ].ord)
+       puts "Error: #{@@errors[ pdu[ 1 ].ord ]}" if $verbose
        return true
     end
     return false
