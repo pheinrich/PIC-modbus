@@ -196,7 +196,7 @@ copyDelays:
    tblrd*+
    movff    TABLAT, POSTINC0
    decfsz   WREG, W
-     bra    $-6
+     bra    $-8
 
    ; Hook the serial port.
    SetWord RTU.isrRx, USART.HookRx  ; set the reception callback
